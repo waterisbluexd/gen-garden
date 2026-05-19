@@ -1,0 +1,56 @@
+[gd_scene format=3 uid="uid://bch3b4tjr44po"]
+
+[ext_resource type="PackedScene" uid="uid://sh2lrpj3bro" path="res://scenes/maps/main_map.tscn" id="1_o5qli"]
+[ext_resource type="Script" uid="uid://dnh61x04fudat" path="res://scripts/camera/camera_pivot.gd" id="2_sugp2"]
+[ext_resource type="Script" uid="uid://ccl71pg48vqsv" path="res://scripts/camera/camera_3d.gd" id="3_jyhfs"]
+
+[sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_0wfyh"]
+sky_horizon_color = Color(0.66224277, 0.6717428, 0.6867428, 1)
+ground_horizon_color = Color(0.66224277, 0.6717428, 0.6867428, 1)
+
+[sub_resource type="Sky" id="Sky_sugp2"]
+sky_material = SubResource("ProceduralSkyMaterial_0wfyh")
+
+[sub_resource type="Environment" id="Environment_jyhfs"]
+background_mode = 1
+background_color = Color(1, 1, 1, 1)
+sky = SubResource("Sky_sugp2")
+ambient_light_source = 2
+ambient_light_color = Color(0.721428, 0.68206424, 0.62135106, 1)
+reflected_light_source = 2
+tonemap_mode = 2
+glow_enabled = true
+glow_normalized = true
+glow_bloom = 1.0
+
+[node name="main" type="Node3D" unique_id=344376419]
+
+[node name="Main_map" type="Node" parent="." unique_id=1889690083]
+
+[node name="main_map" parent="Main_map" unique_id=548471170 instance=ExtResource("1_o5qli")]
+
+[node name="Lighting" type="Node" parent="." unique_id=1221003527]
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="Lighting" unique_id=108154351]
+transform = Transform3D(-0.8660254, -0.43301278, 0.25, 0, 0.49999997, 0.86602545, -0.50000006, 0.75, -0.43301266, 0, 34.902924, 0)
+light_color = Color(0.8400788, 0.7877507, 0.7351351, 1)
+light_energy = 2.0
+shadow_enabled = true
+shadow_blur = 0.0
+directional_shadow_mode = 0
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="Lighting/DirectionalLight3D" unique_id=1072631121]
+environment = SubResource("Environment_jyhfs")
+
+[node name="camera" type="Node" parent="." unique_id=1827128386]
+
+[node name="camera_pivot" type="Node3D" parent="camera" unique_id=1120464498]
+script = ExtResource("2_sugp2")
+
+[node name="Camera3D" type="Camera3D" parent="camera/camera_pivot" unique_id=1036373830]
+transform = Transform3D(1, 0, 0, 0, 0.86602527, 0.49999994, 0, -0.49999994, 0.86602527, 0, 18.090595, 18.090595)
+projection = 1
+size = 9.061
+near = 10.0
+far = 58.2
+script = ExtResource("3_jyhfs")
