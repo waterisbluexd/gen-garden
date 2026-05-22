@@ -7,7 +7,10 @@
 [node name="meshlib" type="Node3D" unique_id=1913964007]
 
 [node name="block_farmland" parent="." unique_id=1522322771 instance=ExtResource("1_nsf4g")]
+visible = false
 
 [node name="block_grass_dirt" parent="." unique_id=1816067108 instance=ExtResource("3_cn237")]
+visible = false
 
 [node name="block_stone_brick" parent="." unique_id=1763880430 instance=ExtResource("2_cn237")]
+visible = false
