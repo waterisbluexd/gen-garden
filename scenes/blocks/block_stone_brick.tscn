@@ -43,7 +43,15 @@ _surfaces = [{
 blend_shape_mode = 0
 shadow_mesh = SubResource("ArrayMesh_sj2s6")
 
+[sub_resource type="ConvexPolygonShape3D" id="ConvexPolygonShape3D_8d063"]
+points = PackedVector3Array(0.5, 0.5, 0.5, 0.5, 0.5, -0.5, -0.5, 0.5, 0.5, 0.5, -0.5, 0.5, 0.5, -0.5, -0.5, -0.5, 0.5, -0.5, -0.5, -0.5, 0.5, -0.5, -0.5, -0.5)
+
 [node name="block_stone_brick" type="Node3D" unique_id=1763880430]
 
 [node name="block_stone_brick" type="MeshInstance3D" parent="." unique_id=209596613]
 mesh = SubResource("ArrayMesh_hq7nr")
+
+[node name="StaticBody3D" type="StaticBody3D" parent="block_stone_brick" unique_id=1986682440]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="block_stone_brick/StaticBody3D" unique_id=578447400]
+shape = SubResource("ConvexPolygonShape3D_8d063")

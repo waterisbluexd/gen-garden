@@ -41,8 +41,16 @@ _surfaces = [{
 blend_shape_mode = 0
 shadow_mesh = SubResource("ArrayMesh_hog41")
 
+[sub_resource type="ConvexPolygonShape3D" id="ConvexPolygonShape3D_l33wk"]
+points = PackedVector3Array(-0.5, -0.46875, -0.5, -0.5, 0.46874994, -0.5, 0.5, -0.46875, -0.5, -0.5, -0.46875, 0.5, -0.5, 0.46874994, 0.5, 0.5, 0.46874994, -0.5, 0.5, -0.46875, 0.5, 0.5, 0.46874994, 0.5)
+
 [node name="block_farmland" type="Node3D" unique_id=1522322771]
 
 [node name="block_farmland" type="MeshInstance3D" parent="." unique_id=2037973291]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.03213319, 0)
 mesh = SubResource("ArrayMesh_cg3j5")
+
+[node name="StaticBody3D" type="StaticBody3D" parent="block_farmland" unique_id=263821174]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="block_farmland/StaticBody3D" unique_id=1175837899]
+shape = SubResource("ConvexPolygonShape3D_l33wk")

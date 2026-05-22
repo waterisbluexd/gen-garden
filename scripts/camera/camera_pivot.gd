@@ -13,6 +13,7 @@ var target_position: Vector3
 var touch_positions: Dictionary = {}
 var touch_pan_active: bool = false
 
+
 func _ready():
 	current_angle = rad_to_deg(rotation.y)
 	target_angle = current_angle
