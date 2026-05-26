@@ -61,15 +61,7 @@ func _raycast(screen_pos: Vector2) -> Dictionary:
 	var cam = get_node_or_null(camera_path) as Camera3D
 	if not cam:
 		return {}
-	var from  = cam.project_ray_origin(screen_pos)
-	var to    = from + cam.project_ray_normal(screen_pos) * 1000.0
-	var query = PhysicsRayQueryParameters3D.new()
-	query.from = from
-	query.to   = to
-	query.collide_with_bodies = true
-	query.collide_with_areas  = false
-	query.collision_mask      = 0x7fffffff
-	return get_world_3d().direct_space_state.intersect_ray(query)
+	return cam.raycast_from_screen(screen_pos)
 
 func _get_cell(collider: Object, world_pos: Vector3) -> Variant:
 	if not collider is GridMap:
