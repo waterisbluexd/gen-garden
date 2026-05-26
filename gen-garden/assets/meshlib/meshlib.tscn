@@ -1,0 +1,13 @@
+[gd_scene format=3 uid="uid://dfr6c886ybqys"]
+
+[ext_resource type="PackedScene" uid="uid://jqf7dgu81gyj" path="res://scenes/blocks/block_grass_dirt.tscn" id="1_cn237"]
+[ext_resource type="PackedScene" uid="uid://cmridgyujqfsa" path="res://scenes/blocks/block_stone_brick.tscn" id="2_nmy0b"]
+[ext_resource type="PackedScene" uid="uid://b13xgsplkn23y" path="res://scenes/blocks/block_farming.tscn" id="3_ucd85"]
+
+[node name="meshlib" type="Node3D" unique_id=1420102903]
+
+[node name="block_grass_dirt" parent="." unique_id=1816067108 instance=ExtResource("1_cn237")]
+
+[node name="block_stone_brick" parent="." unique_id=1763880430 instance=ExtResource("2_nmy0b")]
+
+[node name="block_farmland" parent="." unique_id=1522322771 instance=ExtResource("3_ucd85")]

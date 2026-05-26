@@ -1,0 +1,57 @@
+[gd_scene format=4 uid="uid://cmridgyujqfsa"]
+
+[ext_resource type="Texture2D" uid="uid://lab1ho5ybn6s" path="res://assets/blocks/block_stone_brick_0.png" id="1_02dnn"]
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_orc4j"]
+resource_name = "material_0"
+transparency = 2
+alpha_scissor_threshold = 0.05
+alpha_antialiasing_mode = 0
+albedo_texture = ExtResource("1_02dnn")
+texture_filter = 0
+texture_repeat = false
+
+[sub_resource type="ArrayMesh" id="ArrayMesh_sj2s6"]
+_surfaces = [{
+"aabb": AABB(-0.5, -0.5, -0.5, 1, 1, 1),
+"format": 34896613377,
+"index_count": 36,
+"index_data": PackedByteArray("AAABAAIAAwAAAAIAAgABAAQABQAAAAMABQABAAAAAwACAAYABgAFAAMABgACAAQABwABAAUABwAFAAYAAQAHAAQABAAHAAYA"),
+"name": "material_0",
+"primitive": 3,
+"uv_scale": Vector4(0, 0, 0, 0),
+"vertex_count": 8,
+"vertex_data": PackedByteArray("////////AAD/////AAAAAP//AAD//wAAAAAAAP//AAD//wAAAAAAAAAA/////wAAAAAAAAAAAAAAAP//AAAAAA==")
+}]
+blend_shape_mode = 0
+
+[sub_resource type="ArrayMesh" id="ArrayMesh_hq7nr"]
+resource_name = "blockbench_export_mesh"
+_surfaces = [{
+"aabb": AABB(-0.5, -0.5, -0.5, 1, 1, 1),
+"attribute_data": PackedByteArray("AAD/P/8//z8AAP9//z//f/8//z//f/8//z//f/9//3//P/+/AAD/v/8//38AAP9//78AAP9/AAD/v/8//3//P/8/AAD/fwAA/z//P/9//z8AAAAA/z8AAAAA/z//P/8/"),
+"format": 34896613399,
+"index_count": 36,
+"index_data": PackedByteArray("AAABAAIAAgABAAMABAAFAAYABgAFAAcACAAJAAoACgAJAAsADAANAA4ADgANAA8AEAARABIAEgARABMAFAAVABYAFgAVABcA"),
+"material": SubResource("StandardMaterial3D_orc4j"),
+"name": "material_0",
+"primitive": 3,
+"uv_scale": Vector4(0, 0, 0, 0),
+"vertex_count": 24,
+"vertex_data": PackedByteArray("/////////7//////AAD/v///AAD///+///8AAAAA/78AAP//AAD/vwAA//////+/AAAAAAAA/78AAAAA////vwAA//8AAP///////wAA//8AAP//////////////////AAAAAP//AAD//wAA//8AAAAAAAAAAAAA//8AAAAAAAAAAP////8AgP///////wCAAAAAAP//AID//wAA//8AgP////8AAP//AAD//wAA/////wAAAAD//wAAAAAAAP///38AAP9/AAD/fwAA/38AAP9/////f////3////9/////f/+//3//v/9//7//f/+//3//P/9//z//f/8//3//P/9/////f////3////9/////f////3////9/////f///")
+}]
+blend_shape_mode = 0
+shadow_mesh = SubResource("ArrayMesh_sj2s6")
+
+[sub_resource type="ConvexPolygonShape3D" id="ConvexPolygonShape3D_8d063"]
+points = PackedVector3Array(0.5, 0.5, 0.5, 0.5, 0.5, -0.5, -0.5, 0.5, 0.5, 0.5, -0.5, 0.5, 0.5, -0.5, -0.5, -0.5, 0.5, -0.5, -0.5, -0.5, 0.5, -0.5, -0.5, -0.5)
+
+[node name="block_stone_brick" type="Node3D" unique_id=1763880430]
+
+[node name="block_stone_brick" type="MeshInstance3D" parent="." unique_id=209596613]
+mesh = SubResource("ArrayMesh_hq7nr")
+
+[node name="StaticBody3D" type="StaticBody3D" parent="block_stone_brick" unique_id=1986682440]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="block_stone_brick/StaticBody3D" unique_id=578447400]
+shape = SubResource("ConvexPolygonShape3D_8d063")

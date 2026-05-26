@@ -1,0 +1,108 @@
+[gd_scene format=3 uid="uid://bch3b4tjr44po"]
+
+[ext_resource type="PackedScene" uid="uid://sh2lrpj3bro" path="res://scenes/maps/main_map.tscn" id="1_o5qli"]
+[ext_resource type="Script" uid="uid://dnh61x04fudat" path="res://scripts/camera/camera_pivot.gd" id="2_sugp2"]
+[ext_resource type="Script" uid="uid://ccl71pg48vqsv" path="res://scripts/camera/camera_3d.gd" id="3_jyhfs"]
+[ext_resource type="Texture2D" uid="uid://b0qkjwdarst0m" path="res://assets/texture/packs/seeds/seed_pack_sprite.png" id="5_tbgi4"]
+[ext_resource type="Script" uid="uid://bxcw2vo85oqrb" path="res://scripts/UI/main_sene/fpsanddrawcalls.gd" id="6_o6xl0"]
+[ext_resource type="Script" uid="uid://bpyuisql35bip" path="res://scripts/UI/main_sene/wheat_button_speial.gd" id="6_tefeu"]
+
+[sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_0wfyh"]
+sky_horizon_color = Color(0.66224277, 0.6717428, 0.6867428, 1)
+ground_horizon_color = Color(0.66224277, 0.6717428, 0.6867428, 1)
+
+[sub_resource type="Sky" id="Sky_sugp2"]
+sky_material = SubResource("ProceduralSkyMaterial_0wfyh")
+
+[sub_resource type="Environment" id="Environment_jyhfs"]
+background_mode = 1
+background_color = Color(1, 1, 1, 1)
+sky = SubResource("Sky_sugp2")
+ambient_light_source = 2
+ambient_light_color = Color(0.721428, 0.68206424, 0.62135106, 1)
+reflected_light_source = 2
+tonemap_mode = 2
+glow_enabled = true
+glow_normalized = true
+glow_bloom = 1.0
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_tefeu"]
+atlas = ExtResource("5_tbgi4")
+region = Rect2(0, 0, 32, 32)
+
+[node name="main" type="Node3D" unique_id=344376419]
+
+[node name="Main_map" type="Node" parent="." unique_id=1889690083]
+
+[node name="main_map" parent="Main_map" unique_id=548471170 instance=ExtResource("1_o5qli")]
+camera_path = NodePath("../../camera/camera_pivot/Camera3D")
+
+[node name="Lighting" type="Node" parent="." unique_id=1221003527]
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="Lighting" unique_id=108154351]
+transform = Transform3D(-0.8660254, -0.34018147, 0.36643776, 0, 0.73287547, 0.6803628, -0.50000006, 0.5892115, -0.63468874, 0, 34.902924, 0)
+light_color = Color(0.8400788, 0.7877507, 0.7351351, 1)
+light_energy = 2.0
+shadow_enabled = true
+shadow_bias = 0.05
+shadow_blur = 0.478
+directional_shadow_pancake_size = 23.4
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="Lighting/DirectionalLight3D" unique_id=1072631121]
+environment = SubResource("Environment_jyhfs")
+
+[node name="camera" type="Node" parent="." unique_id=1827128386]
+
+[node name="camera_pivot" type="Node3D" parent="camera" unique_id=1120464498]
+script = ExtResource("2_sugp2")
+
+[node name="Camera3D" type="Camera3D" parent="camera/camera_pivot" unique_id=1036373830]
+transform = Transform3D(1, 0, 0, 0, 0.86602527, 0.49999994, 0, -0.49999994, 0.86602527, 0, 18.090595, 18.090595)
+projection = 1
+size = 9.061
+near = 10.0
+far = 64.65
+script = ExtResource("3_jyhfs")
+
+[node name="UI" type="CanvasLayer" parent="." unique_id=1467437154]
+
+[node name="Control" type="Control" parent="UI" unique_id=1796754168]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+mouse_filter = 2
+
+[node name="MarginContainer" type="MarginContainer" parent="UI/Control" unique_id=748821105]
+layout_mode = 1
+anchors_preset = 9
+anchor_bottom = 1.0
+offset_right = 732.0
+grow_vertical = 2
+mouse_filter = 2
+theme_override_constants/margin_top = 8
+theme_override_constants/margin_right = 668
+
+[node name="VBoxContainer" type="VBoxContainer" parent="UI/Control/MarginContainer" unique_id=1189263694]
+layout_mode = 2
+
+[node name="TextureButton" type="TextureButton" parent="UI/Control/MarginContainer/VBoxContainer" unique_id=131574497]
+texture_filter = 1
+custom_minimum_size = Vector2(64, 64)
+layout_mode = 2
+texture_normal = SubResource("AtlasTexture_tefeu")
+ignore_texture_size = true
+stretch_mode = 5
+script = ExtResource("6_tefeu")
+
+[node name="Label" type="Label" parent="UI/Control/MarginContainer/VBoxContainer" unique_id=1751596255]
+custom_minimum_size = Vector2(300, 300)
+layout_mode = 2
+theme_override_colors/font_color = Color(0, 0, 0, 1)
+script = ExtResource("6_o6xl0")
+
+[connection signal="pressed" from="UI/Control/MarginContainer/VBoxContainer/TextureButton" to="UI/Control/MarginContainer/VBoxContainer/TextureButton" method="_on_pressed"]

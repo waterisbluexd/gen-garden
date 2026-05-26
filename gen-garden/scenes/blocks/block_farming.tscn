@@ -1,0 +1,56 @@
+[gd_scene format=4 uid="uid://b13xgsplkn23y"]
+
+[ext_resource type="Texture2D" uid="uid://dskfi8viiwtcn" path="res://assets/blocks/block_farmland_0.png" id="1_7xwiw"]
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_gvs2c"]
+resource_name = "material_0"
+albedo_color = Color(0.70521796, 0.57641494, 0.5506821, 1)
+albedo_texture = ExtResource("1_7xwiw")
+texture_filter = 0
+texture_repeat = false
+
+[sub_resource type="ArrayMesh" id="ArrayMesh_hog41"]
+_surfaces = [{
+"aabb": AABB(-0.5, -0.46875, -0.5, 1, 0.9375, 1),
+"format": 34896613377,
+"index_count": 36,
+"index_data": PackedByteArray("AAABAAIAAwAAAAIAAgABAAQABQAAAAMABQABAAAAAwACAAYABgAFAAMABgACAAQABwABAAUABwAFAAYAAQAHAAQABAAHAAYA"),
+"name": "material_0",
+"primitive": 3,
+"uv_scale": Vector4(0, 0, 0, 0),
+"vertex_count": 8,
+"vertex_data": PackedByteArray("////////AAD/////AAAAAP//AAD//wAAAAAAAP//AAD//wAAAAAAAAAA/////wAAAAAAAAAAAAAAAP//AAAAAA==")
+}]
+blend_shape_mode = 0
+
+[sub_resource type="ArrayMesh" id="ArrayMesh_cg3j5"]
+resource_name = "blockbench_export_mesh"
+_surfaces = [{
+"aabb": AABB(-0.5, -0.46875, -0.5, 1, 0.9375, 1),
+"attribute_data": PackedByteArray("/z//O/9//zv/P/93/3//dwAA/3//P/9/AAD/u/8//7v/P/8/AAD/P/8/AAAAAAAA/z//PwAA/z//P/9/AAD/f/8//3f/f/93/z//s/9//7P/PwAA/38AAP8//zv/f/87"),
+"format": 34896613399,
+"index_count": 36,
+"index_data": PackedByteArray("AAABAAIAAgABAAMABAAFAAYABgAFAAcACAAJAAoACgAJAAsADAANAA4ADgANAA8AEAARABIAEgARABMAFAAVABYAFgAVABcA"),
+"material": SubResource("StandardMaterial3D_gvs2c"),
+"name": "material_0",
+"primitive": 3,
+"uv_scale": Vector4(0, 0, 0, 0),
+"vertex_count": 24,
+"vertex_data": PackedByteArray("/////////7//////AAD/v///AAD///+///8AAAAA/78AAP//AAD/vwAA//////+/AAAAAAAA/78AAAAA////vwAA//8AAP///////wAA//8AAP//////////////////AAAAAP//AAD//wAA//8AAAAAAAAAAAAA//8AAAAAAAAAAP////8AgP///////wCAAAAAAP//AID//wAA//8AgP////8AAP//AAD//wAA/////wAAAAD//wAAAAAAAP///38AAP9/AAD/fwAA/38AAP9/////f////3////9/////f/+//3//v/9//7//f/+//3//P/9//z//f/8//3//P/9/////f////3////9/////f////3////9/////f///")
+}]
+blend_shape_mode = 0
+shadow_mesh = SubResource("ArrayMesh_hog41")
+
+[sub_resource type="ConvexPolygonShape3D" id="ConvexPolygonShape3D_l33wk"]
+points = PackedVector3Array(-0.5, -0.46875, -0.5, -0.5, 0.46874994, -0.5, 0.5, -0.46875, -0.5, -0.5, -0.46875, 0.5, -0.5, 0.46874994, 0.5, 0.5, 0.46874994, -0.5, 0.5, -0.46875, 0.5, 0.5, 0.46874994, 0.5)
+
+[node name="block_farmland" type="Node3D" unique_id=1522322771]
+
+[node name="block_farmland" type="MeshInstance3D" parent="." unique_id=2037973291]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.03213319, 0)
+mesh = SubResource("ArrayMesh_cg3j5")
+
+[node name="StaticBody3D" type="StaticBody3D" parent="block_farmland" unique_id=263821174]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="block_farmland/StaticBody3D" unique_id=1175837899]
+shape = SubResource("ConvexPolygonShape3D_l33wk")
