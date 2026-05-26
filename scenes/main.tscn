@@ -3,8 +3,8 @@
 [ext_resource type="PackedScene" uid="uid://sh2lrpj3bro" path="res://scenes/maps/main_map.tscn" id="1_o5qli"]
 [ext_resource type="Script" uid="uid://dnh61x04fudat" path="res://scripts/camera/camera_pivot.gd" id="2_sugp2"]
 [ext_resource type="Script" uid="uid://ccl71pg48vqsv" path="res://scripts/camera/camera_3d.gd" id="3_jyhfs"]
-[ext_resource type="Script" uid="uid://b8dlwmbxrsx8t" path="res://scripts/UI/main_sene/look_for_map.gd" id="4_tefeu"]
 [ext_resource type="Texture2D" uid="uid://b0qkjwdarst0m" path="res://assets/texture/packs/seeds/seed_pack_sprite.png" id="5_tbgi4"]
+[ext_resource type="Script" uid="uid://bxcw2vo85oqrb" path="res://scripts/UI/main_sene/fpsanddrawcalls.gd" id="6_o6xl0"]
 [ext_resource type="Script" uid="uid://bpyuisql35bip" path="res://scripts/UI/main_sene/wheat_button_speial.gd" id="6_tefeu"]
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_0wfyh"]
@@ -66,7 +66,7 @@ script = ExtResource("3_jyhfs")
 
 [node name="UI" type="CanvasLayer" parent="." unique_id=1467437154]
 
-[node name="Control" type="Control" parent="UI" unique_id=1796754168 node_paths=PackedStringArray("main_map")]
+[node name="Control" type="Control" parent="UI" unique_id=1796754168]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -76,15 +76,12 @@ grow_vertical = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
 mouse_filter = 2
-script = ExtResource("4_tefeu")
-main_map = NodePath("../../Main_map/main_map")
 
 [node name="MarginContainer" type="MarginContainer" parent="UI/Control" unique_id=748821105]
 layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
+anchors_preset = 9
 anchor_bottom = 1.0
-grow_horizontal = 2
+offset_right = 732.0
 grow_vertical = 2
 mouse_filter = 2
 theme_override_constants/margin_top = 8
@@ -101,5 +98,11 @@ texture_normal = SubResource("AtlasTexture_tefeu")
 ignore_texture_size = true
 stretch_mode = 5
 script = ExtResource("6_tefeu")
+
+[node name="Label" type="Label" parent="UI/Control/MarginContainer/VBoxContainer" unique_id=1751596255]
+custom_minimum_size = Vector2(300, 300)
+layout_mode = 2
+theme_override_colors/font_color = Color(0, 0, 0, 1)
+script = ExtResource("6_o6xl0")
 
 [connection signal="pressed" from="UI/Control/MarginContainer/VBoxContainer/TextureButton" to="UI/Control/MarginContainer/VBoxContainer/TextureButton" method="_on_pressed"]

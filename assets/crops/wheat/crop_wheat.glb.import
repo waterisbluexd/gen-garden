@@ -3,13 +3,13 @@
 importer="scene"
 importer_version=1
 type="PackedScene"
-uid="uid://d1n0s8nm6gwqx"
-path="res://.godot/imported/block_plant_wheat.gltf-973a3daeaf4547120071d35bdbfdb018.scn"
+uid="uid://dcjiy6nh0m4x4"
+path="res://.godot/imported/crop_wheat.glb-61f356e52ac5623304416f1897129463.scn"
 
 [deps]
 
-source_file="res://assets/crops/wheat/block_plant_wheat.gltf"
-dest_files=["res://.godot/imported/block_plant_wheat.gltf-973a3daeaf4547120071d35bdbfdb018.scn"]
+source_file="res://assets/crops/wheat/crop_wheat.glb"
+dest_files=["res://.godot/imported/crop_wheat.glb-61f356e52ac5623304416f1897129463.scn"]
 
 [params]
 

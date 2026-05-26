@@ -2,8 +2,8 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://b8pa2kxsn20c7"
-path.s3tc="res://.godot/imported/wheat_stage3.png-faf0950ed10cae89c546a268ca245e5e.s3tc.ctex"
+uid="uid://dwlmswj8qpj62"
+path.s3tc="res://.godot/imported/wheat_sprite.png-ff83b8057c8b741e12adf48a73645179.s3tc.ctex"
 metadata={
 "imported_formats": ["s3tc_bptc"],
 "vram_texture": true
@@ -11,8 +11,8 @@ metadata={
 
 [deps]
 
-source_file="res://assets/crops/wheat/wheat_stage3.png"
-dest_files=["res://.godot/imported/wheat_stage3.png-faf0950ed10cae89c546a268ca245e5e.s3tc.ctex"]
+source_file="res://assets/texture/packs/seeds/wheat_sprite.png"
+dest_files=["res://.godot/imported/wheat_sprite.png-ff83b8057c8b741e12adf48a73645179.s3tc.ctex"]
 
 [params]
 
