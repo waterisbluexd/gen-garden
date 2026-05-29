@@ -31,6 +31,9 @@ func _unhandled_input(event: InputEvent) -> void:
 			KEY_3:
 				active_block_id = 3
 				print("Selected Block ID 3")
+			KEY_4:
+				active_block_id = 4
+				print("Selected Block ID 4")
 
 	# Handle mouse click placement/removal
 	if event is InputEventMouseButton:
@@ -144,7 +147,7 @@ func add_box(st: SurfaceTool, x: int, z: int, w: int, d: int, block: BlockType, 
 	var z0 := float(z)
 	var z1 := float(z + d)
 	var y0 := 0.0
-	var y1 := 1.0
+	var y1 = block.height
 
 	var current_vertex: int = start_vertex
 

@@ -4,6 +4,8 @@ class_name BlockType
 @export var id: int
 @export var block_name: String
 
+@export var height: float = 1.0
+
 @export var uv_top:         int
 @export var uv_bottom:      int
 @export var uv_side_front:  int

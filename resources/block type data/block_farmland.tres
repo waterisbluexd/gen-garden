@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="BlockType" format=3 uid="uid://3d7fu6ensj3"]
+
+[ext_resource type="Script" uid="uid://c4hwjhd3aiokc" path="res://resources/block type data/BlockType.gd" id="1_r78cr"]
+
+[resource]
+script = ExtResource("1_r78cr")
+id = 4
+block_name = "Farmland"
+height = 0.9
+uv_top = 1
+uv_bottom = 2
+uv_side_front = 2
+uv_side_back = 2
+uv_side_left = 2
+uv_side_right = 2
+metadata/_custom_type_script = "uid://c4hwjhd3aiokc"
