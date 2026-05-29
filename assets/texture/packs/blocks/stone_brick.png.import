@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://dic4nhsu573wp"
 path.s3tc="res://.godot/imported/stone_brick.png-c6579fafce01fe11ffb6d2e6724892b2.s3tc.ctex"
+path.etc2="res://.godot/imported/stone_brick.png-c6579fafce01fe11ffb6d2e6724892b2.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/texture/packs/blocks/stone_brick.png"
-dest_files=["res://.godot/imported/stone_brick.png-c6579fafce01fe11ffb6d2e6724892b2.s3tc.ctex"]
+dest_files=["res://.godot/imported/stone_brick.png-c6579fafce01fe11ffb6d2e6724892b2.s3tc.ctex", "res://.godot/imported/stone_brick.png-c6579fafce01fe11ffb6d2e6724892b2.etc2.ctex"]
 
 [params]
 

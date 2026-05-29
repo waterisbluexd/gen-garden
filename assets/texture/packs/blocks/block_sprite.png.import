@@ -4,15 +4,16 @@ importer="2d_array_texture"
 type="CompressedTexture2DArray"
 uid="uid://p706u2usufy1"
 path.s3tc="res://.godot/imported/block_sprite.png-66ffb1617779bb413ca318002aa3e769.s3tc.ctexarray"
+path.etc2="res://.godot/imported/block_sprite.png-66ffb1617779bb413ca318002aa3e769.etc2.ctexarray"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/texture/packs/blocks/block_sprite.png"
-dest_files=["res://.godot/imported/block_sprite.png-66ffb1617779bb413ca318002aa3e769.s3tc.ctexarray"]
+dest_files=["res://.godot/imported/block_sprite.png-66ffb1617779bb413ca318002aa3e769.s3tc.ctexarray", "res://.godot/imported/block_sprite.png-66ffb1617779bb413ca318002aa3e769.etc2.ctexarray"]
 
 [params]
 

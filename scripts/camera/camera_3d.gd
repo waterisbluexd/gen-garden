@@ -21,6 +21,7 @@ func raycast_from_screen(screen_pos: Vector2) -> Dictionary:
 	var from = project_ray_origin(screen_pos)
 	var to   = from + project_ray_normal(screen_pos) * 1000.0
 	var query = PhysicsRayQueryParameters3D.new()
+	query.collision_mask = 32
 	query.from = from
 	query.to   = to
 	query.collide_with_bodies = true

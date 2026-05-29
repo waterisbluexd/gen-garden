@@ -14,4 +14,4 @@ func _input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed:
 		if event.keycode == KEY_P:
 			var vp = get_viewport()
-			vp.debug_draw = (vp.debug_draw + 1) % 4
+			vp.debug_draw = (vp.debug_draw + 1) % 5

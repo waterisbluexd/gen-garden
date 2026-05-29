@@ -18,3 +18,4 @@ class_name BlockType
 @export var color_back:       Color = Color.WHITE
 @export var color_left:       Color = Color.WHITE
 @export var color_right:      Color = Color.WHITE
+@export var color_bottom:     Color = Color.WHITE
