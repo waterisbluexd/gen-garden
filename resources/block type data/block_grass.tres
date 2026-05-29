@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="BlockType" format=3 uid="uid://u7c5nqskq5yo"]
+
+[ext_resource type="Script" uid="uid://c4hwjhd3aiokc" path="res://resources/block type data/BlockType.gd" id="1_b6kqb"]
+
+[resource]
+script = ExtResource("1_b6kqb")
+id = 3
+block_name = "Grass"
+uv_top = 3
+uv_bottom = 3
+uv_side_front = 3
+uv_side_back = 3
+uv_side_left = 3
+uv_side_right = 3
+albedo_color = Color(0.664207, 0.6576916, 0.3552445, 1)
+metadata/_custom_type_script = "uid://c4hwjhd3aiokc"

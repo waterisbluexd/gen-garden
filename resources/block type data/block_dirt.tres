@@ -1,0 +1,15 @@
+[gd_resource type="Resource" script_class="BlockType" format=3 uid="uid://q8aaub5h2ei8"]
+
+[ext_resource type="Script" uid="uid://c4hwjhd3aiokc" path="res://resources/block type data/BlockType.gd" id="1_a2rbn"]
+
+[resource]
+script = ExtResource("1_a2rbn")
+id = 2
+block_name = "Dirt"
+uv_top = 2
+uv_bottom = 2
+uv_side_front = 2
+uv_side_back = 2
+uv_side_left = 2
+uv_side_right = 2
+metadata/_custom_type_script = "uid://c4hwjhd3aiokc"

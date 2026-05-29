@@ -1,0 +1,9 @@
+[gd_resource type="Resource" script_class="BlockType" format=3 uid="uid://broryakw4s47h"]
+
+[ext_resource type="Script" uid="uid://c4hwjhd3aiokc" path="res://resources/block type data/BlockType.gd" id="1_xgm5y"]
+
+[resource]
+script = ExtResource("1_xgm5y")
+id = 1
+block_name = "Stone Brick"
+metadata/_custom_type_script = "uid://c4hwjhd3aiokc"

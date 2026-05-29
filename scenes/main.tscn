@@ -1,6 +1,7 @@
 [gd_scene format=3 uid="uid://bch3b4tjr44po"]
 
 [ext_resource type="PackedScene" uid="uid://sh2lrpj3bro" path="res://scenes/maps/main_map.tscn" id="1_o5qli"]
+[ext_resource type="PackedScene" uid="uid://c5tsmpa6jidmf" path="res://scenes/gridmap/gridmap_nongodot.tscn" id="2_o6xl0"]
 [ext_resource type="Script" uid="uid://dnh61x04fudat" path="res://scripts/camera/camera_pivot.gd" id="2_sugp2"]
 [ext_resource type="Script" uid="uid://ccl71pg48vqsv" path="res://scripts/camera/camera_3d.gd" id="3_jyhfs"]
 [ext_resource type="Texture2D" uid="uid://b0qkjwdarst0m" path="res://assets/texture/packs/seeds/seed_pack_sprite.png" id="5_tbgi4"]
@@ -36,6 +37,9 @@ region = Rect2(0, 0, 32, 32)
 
 [node name="main_map" parent="Main_map" unique_id=548471170 instance=ExtResource("1_o5qli")]
 camera_path = NodePath("../../camera/camera_pivot/Camera3D")
+
+[node name="gridmap_nongodot" parent="Main_map" unique_id=1859242578 node_paths=PackedStringArray("camera3d") instance=ExtResource("2_o6xl0")]
+camera3d = NodePath("../../camera/camera_pivot/Camera3D")
 
 [node name="Lighting" type="Node" parent="." unique_id=1221003527]
 

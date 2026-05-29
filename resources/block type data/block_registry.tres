@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="BlockRegistry" format=3 uid="uid://cjqnqqjx1w5rs"]
+
+[ext_resource type="Script" uid="uid://c4hwjhd3aiokc" path="res://resources/block type data/BlockType.gd" id="1_qnrse"]
+[ext_resource type="Resource" uid="uid://broryakw4s47h" path="res://resources/block type data/block_stone_brick.tres" id="2_54u80"]
+[ext_resource type="Script" uid="uid://djhkuer2oowes" path="res://resources/block type data/block_registry.gd" id="2_2000x"]
+[ext_resource type="Resource" uid="uid://q8aaub5h2ei8" path="res://resources/block type data/block_dirt.tres" id="3_54u80"]
+[ext_resource type="Resource" uid="uid://u7c5nqskq5yo" path="res://resources/block type data/block_grass.tres" id="4_rn2iy"]
+
+[resource]
+script = ExtResource("2_2000x")
+blocks = Array[ExtResource("1_qnrse")]([ExtResource("2_54u80"), ExtResource("3_54u80"), ExtResource("4_rn2iy")])
+metadata/_custom_type_script = "uid://djhkuer2oowes"
