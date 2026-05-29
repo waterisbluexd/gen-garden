@@ -36,6 +36,7 @@ region = Rect2(0, 0, 32, 32)
 [node name="Main_map" type="Node" parent="." unique_id=1889690083]
 
 [node name="main_map" parent="Main_map" unique_id=548471170 instance=ExtResource("1_o5qli")]
+visible = false
 camera_path = NodePath("../../camera/camera_pivot/Camera3D")
 
 [node name="gridmap_nongodot" parent="Main_map" unique_id=1859242578 node_paths=PackedStringArray("camera3d") instance=ExtResource("2_o6xl0")]
@@ -57,14 +58,14 @@ environment = SubResource("Environment_jyhfs")
 
 [node name="camera" type="Node" parent="." unique_id=1827128386]
 
-[node name="camera_pivot" type="Node3D" parent="camera" unique_id=1120464498]
+[node name="camera_pivot" type="Node3D" parent="camera" unique_id=1120464498 node_paths=PackedStringArray("gridmapinuse")]
 script = ExtResource("2_sugp2")
+gridmapinuse = NodePath(".")
 
 [node name="Camera3D" type="Camera3D" parent="camera/camera_pivot" unique_id=1036373830]
-transform = Transform3D(1, 0, 0, 0, 0.86602527, 0.49999994, 0, -0.49999994, 0.86602527, 0, 18.090595, 18.090595)
+transform = Transform3D(1, 0, 0, 0, 0.86602527, 0.49999994, 0, -0.49999994, 0.86602527, 0, 14.352463, 20.248808)
 projection = 1
-size = 9.061
-near = 10.0
+size = 26.979
 far = 64.65
 script = ExtResource("3_jyhfs")
 

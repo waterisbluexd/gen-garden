@@ -14,38 +14,33 @@ class_name Grid
 
 const CHUNK_SIZE: int = 32
 
-# Data structures
-var cells: Dictionary = {}                 # Global map: Vector3i(global_pos) -> block_id
-var chunk_to_cells: Dictionary = {}         # Grouping map: Vector3i(chunk_pos) -> Dictionary of global_pos
-var chunk_nodes: Dictionary = {}            # Node management: Vector3i(chunk_pos) -> Dictionary of references
+var cells: Dictionary = {}
+var chunk_to_cells: Dictionary = {}
+var chunk_nodes: Dictionary = {}
 
 var camera: Camera3D
 var active_block_id: int = 1
 
 func _ready() -> void:
-	# Clean up any leftover boilerplate nodes from the old single-mesh approach
 	if has_node("StaticBody3D"):
 		$StaticBody3D.queue_free()
 		
 	if generate_base_layer:
-		print("Generating chunked base layer...")
 		fill(base_width, base_depth, base_block_id, base_y_level)
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed:
 		match event.keycode:
-			KEY_1: active_block_id = 1; print("Selected Block ID 1")
-			KEY_2: active_block_id = 2; print("Selected Block ID 2")
-			KEY_3: active_block_id = 3; print("Selected Block ID 3")
-			KEY_4: active_block_id = 4; print("Selected Block ID 4")
+			KEY_1: active_block_id = 1
+			KEY_2: active_block_id = 2
+			KEY_3: active_block_id = 3
+			KEY_4: active_block_id = 4
 
 	if event is InputEventMouseButton:
 		if event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
 			place_block_from_mouse(active_block_id)
 		if event.button_index == MOUSE_BUTTON_RIGHT and event.pressed:
 			remove_block_from_mouse()
-
-# --- Chunk Math Utilities ---
 
 func get_chunk_coord(global_pos: Vector3i) -> Vector3i:
 	return Vector3i(
@@ -75,8 +70,6 @@ func ensure_chunk_node(chunk_coord: Vector3i) -> void:
 		"mesh_instance": mi,
 		"collision_shape": shape
 	}
-
-# --- Block Manipulation Logic ---
 
 func place_block_from_mouse(block_id: int) -> void:
 	if camera == null: return
@@ -133,17 +126,13 @@ func fill(width: int, depth: int, block_id: int, y: int = 0) -> void:
 			chunk_to_cells[chunk_coord][global_pos] = true
 			affected_chunks[chunk_coord] = true
 			
-	# Rebuild every modified chunk exactly once at completion
 	for c in affected_chunks.keys():
 		rebuild_chunk_mesh(c)
-
-# --- Mesh Generation Engine ---
 
 func rebuild_chunks_for_block(global_pos: Vector3i) -> void:
 	var chunk_coord = get_chunk_coord(global_pos)
 	var chunks_to_rebuild := { chunk_coord: true }
 	
-	# Check if the block sits on a seam/border; if so, trigger neighbor chunks
 	var local_x = posmod(global_pos.x, CHUNK_SIZE)
 	var local_y = posmod(global_pos.y, CHUNK_SIZE)
 	var local_z = posmod(global_pos.z, CHUNK_SIZE)
@@ -159,16 +148,13 @@ func rebuild_chunks_for_block(global_pos: Vector3i) -> void:
 		rebuild_chunk_mesh(c)
 
 func rebuild_chunk_mesh(chunk_coord: Vector3i) -> void:
-	# Clear out the old mesh instances if a chunk becomes completely empty
-	if not chunk_to_cells.has(chunk_coord) or chunk_to_cells[chunk_coord].is_empty():
-		if chunk_nodes.has(chunk_coord):
-			chunk_nodes[chunk_coord].mesh_instance.mesh = null
-			chunk_nodes[chunk_coord].collision_shape.shape = null
-		return
+	var new_mesh = generate_chunk_mesh_data(chunk_coord)
+	apply_mesh_to_chunk_node(chunk_coord, new_mesh)
 
-	ensure_chunk_node(chunk_coord)
-	var chunk_data = chunk_nodes[chunk_coord]
-	
+func generate_chunk_mesh_data(chunk_coord: Vector3i) -> ArrayMesh:
+	if not chunk_to_cells.has(chunk_coord) or chunk_to_cells[chunk_coord].is_empty():
+		return null
+
 	var st := SurfaceTool.new()
 	st.begin(Mesh.PRIMITIVE_TRIANGLES)
 	var vertex_counter: int = 0
@@ -180,80 +166,73 @@ func rebuild_chunk_mesh(chunk_coord: Vector3i) -> void:
 	var right_faces: Dictionary = {}
 	var left_faces: Dictionary = {}
 
-	# Only iterate through the specific blocks belonging to this single chunk
 	for coord in chunk_to_cells[chunk_coord].keys():
 		var id: int = cells[coord]
+		var block = block_registry.get_block(id)
 		var key := Vector2i(coord.y, id)
 		var key_z := Vector2i(coord.z, id)
 		var key_x := Vector2i(coord.x, id)
 
-		# Top (+Y)
-		if not cells.has(Vector3i(coord.x, coord.y + 1, coord.z)):
+		var top_coord = Vector3i(coord.x, coord.y + 1, coord.z)
+		if not cells.has(top_coord) or block.height < 1.0:
 			if not top_faces.has(key): top_faces[key] = []
 			top_faces[key].append(Vector2i(coord.x, coord.z))
 			
-		# Bottom (-Y)
-		if not cells.has(Vector3i(coord.x, coord.y - 1, coord.z)):
+		var bottom_coord = Vector3i(coord.x, coord.y - 1, coord.z)
+		if not cells.has(bottom_coord) or block_registry.get_block(cells[bottom_coord]).height < 1.0:
 			if not bottom_faces.has(key): bottom_faces[key] = []
 			bottom_faces[key].append(Vector2i(coord.x, coord.z))
 
-		# Front (+Z)
-		if not cells.has(Vector3i(coord.x, coord.y, coord.z + 1)):
+		var front_coord = Vector3i(coord.x, coord.y, coord.z + 1)
+		if not cells.has(front_coord) or block_registry.get_block(cells[front_coord]).height < block.height:
 			if not front_faces.has(key_z): front_faces[key_z] = []
 			front_faces[key_z].append(Vector2i(coord.x, coord.y))
 			
-		# Back (-Z)
-		if not cells.has(Vector3i(coord.x, coord.y, coord.z - 1)):
+		var back_coord = Vector3i(coord.x, coord.y, coord.z - 1)
+		if not cells.has(back_coord) or block_registry.get_block(cells[back_coord]).height < block.height:
 			if not back_faces.has(key_z): back_faces[key_z] = []
 			back_faces[key_z].append(Vector2i(coord.x, coord.y))
 
-		# Right (+X)
-		if not cells.has(Vector3i(coord.x + 1, coord.y, coord.z)):
+		var right_coord = Vector3i(coord.x + 1, coord.y, coord.z)
+		if not cells.has(right_coord) or block_registry.get_block(cells[right_coord]).height < block.height:
 			if not right_faces.has(key_x): right_faces[key_x] = []
 			right_faces[key_x].append(Vector2i(coord.z, coord.y))
 			
-		# Left (-X)
-		if not cells.has(Vector3i(coord.x - 1, coord.y, coord.z)):
+		var left_coord = Vector3i(coord.x - 1, coord.y, coord.z)
+		if not cells.has(left_coord) or block_registry.get_block(cells[left_coord]).height < block.height:
 			if not left_faces.has(key_x): left_faces[key_x] = []
 			left_faces[key_x].append(Vector2i(coord.z, coord.y))
 
-	# The remainder of Pass 2 uses your exact same code structures
-	# TOP
 	for key in top_faces.keys():
 		var block = block_registry.get_block(key.y)
 		var quads = greedy_mesh_2d(top_faces[key], true)
 		for q in quads:
 			vertex_counter = add_top_face(st, q.x, key.x, q.y, q.w, q.d, block, vertex_counter)
 
-	# BOTTOM
 	for key in bottom_faces.keys():
 		var block = block_registry.get_block(key.y)
 		var quads = greedy_mesh_2d(bottom_faces[key], true)
 		for q in quads:
 			vertex_counter = add_bottom_face(st, q.x, key.x, q.y, q.w, q.d, block, vertex_counter)
 
-	# FRONT
 	for key in front_faces.keys():
 		var block = block_registry.get_block(key.y)
 		var quads = greedy_mesh_2d(front_faces[key], block.height == 1.0)
 		for q in quads:
 			vertex_counter = add_front_face(st, q.x, q.y, key.x, q.w, q.d, block, vertex_counter)
 
-	# BACK
 	for key in back_faces.keys():
 		var block = block_registry.get_block(key.y)
 		var quads = greedy_mesh_2d(back_faces[key], block.height == 1.0)
 		for q in quads:
 			vertex_counter = add_back_face(st, q.x, q.y, key.x, q.w, q.d, block, vertex_counter)
 
-	# RIGHT
 	for key in right_faces.keys():
 		var block = block_registry.get_block(key.y)
 		var quads = greedy_mesh_2d(right_faces[key], block.height == 1.0)
 		for q in quads:
 			vertex_counter = add_right_face(st, key.x, q.y, q.x, q.d, q.w, block, vertex_counter)
 
-	# LEFT
 	for key in left_faces.keys():
 		var block = block_registry.get_block(key.y)
 		var quads = greedy_mesh_2d(left_faces[key], block.height == 1.0)
@@ -266,10 +245,21 @@ func rebuild_chunk_mesh(chunk_coord: Vector3i) -> void:
 
 	var array_mesh := ArrayMesh.new()
 	st.commit(array_mesh)
+	return array_mesh
+
+func apply_mesh_to_chunk_node(chunk_coord: Vector3i, array_mesh: ArrayMesh) -> void:
+	if array_mesh == null:
+		if chunk_nodes.has(chunk_coord):
+			chunk_nodes[chunk_coord].mesh_instance.mesh = null
+			chunk_nodes[chunk_coord].collision_shape.shape = null
+		return
+
+	ensure_chunk_node(chunk_coord)
+	var chunk_data = chunk_nodes[chunk_coord]
+	
 	chunk_data.mesh_instance.mesh = array_mesh
 	chunk_data.collision_shape.shape = array_mesh.create_trimesh_shape()
 
-# Reusable 2D Greedy Meshing Helper
 func greedy_mesh_2d(coords: Array, allow_vertical_expansion: bool = true) -> Array:
 	var result := []
 	coords.sort_custom(func(a, b): return a.x < b.x if a.x != b.x else a.y < b.y)
@@ -305,8 +295,6 @@ func greedy_mesh_2d(coords: Array, allow_vertical_expansion: bool = true) -> Arr
 
 		result.append({"x": coord.x, "y": coord.y, "w": w, "d": d})
 	return result
-
-# --- Directional Face Mesh Constructors (Identical to your original math) ---
 
 func add_top_face(st: SurfaceTool, x: int, y: int, z: int, w: int, d: int, block: BlockType, start_idx: int) -> int:
 	var x0 := float(x); var x1 := float(x + w); var z0 := float(z); var z1 := float(z + d); var y1 := float(y) + block.height

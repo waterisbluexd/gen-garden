@@ -23,8 +23,8 @@ atlas_texture = ExtResource("4_ltgo2")
 atlas_shader = SubResource("ShaderMaterial_a1lbn")
 block_registry = ExtResource("5_fqwpn")
 base_block_id = 3
-base_width = 200
-base_depth = 200
+base_width = 64
+base_depth = 64
 
 [node name="StaticBody3D" type="StaticBody3D" parent="grid" unique_id=15182362]
 collision_layer = 2147483649
