@@ -4,9 +4,8 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://lab1ho5ybn6s"
 path.s3tc="res://.godot/imported/block_stone_brick_0.png-c2f1b6a12d5f6e3a90b57388d0ffcc0d.s3tc.ctex"
-path.etc2="res://.godot/imported/block_stone_brick_0.png-c2f1b6a12d5f6e3a90b57388d0ffcc0d.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -16,7 +15,7 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/blocks/block_stone_brick_0.png"
-dest_files=["res://.godot/imported/block_stone_brick_0.png-c2f1b6a12d5f6e3a90b57388d0ffcc0d.s3tc.ctex", "res://.godot/imported/block_stone_brick_0.png-c2f1b6a12d5f6e3a90b57388d0ffcc0d.etc2.ctex"]
+dest_files=["res://.godot/imported/block_stone_brick_0.png-c2f1b6a12d5f6e3a90b57388d0ffcc0d.s3tc.ctex"]
 
 [params]
 

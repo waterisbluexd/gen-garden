@@ -152,7 +152,7 @@ func add_box(st: SurfaceTool, x: int, z: int, w: int, d: int, block: BlockType, 
 	current_vertex = add_face(st, [
 		Vector3(x0, y1, z0), Vector3(x1, y1, z0),
 		Vector3(x1, y1, z1), Vector3(x0, y1, z1)
-	], Vector3(0, 1, 0), block.uv_top, w, d, current_vertex, block.albedo_color)
+	], Vector3(0, 1, 0), block.uv_top, w, d, current_vertex, block.color_top)
 
 	# NOTE: BOTTOM FACE CULLED (REMOVED)
 
@@ -160,25 +160,25 @@ func add_box(st: SurfaceTool, x: int, z: int, w: int, d: int, block: BlockType, 
 	current_vertex = add_face(st, [
 		Vector3(x1, y0, z1), Vector3(x0, y0, z1),
 		Vector3(x0, y1, z1), Vector3(x1, y1, z1)
-	], Vector3(0, 0, 1), block.uv_side_front, w, 1, current_vertex, block.albedo_color)
+	], Vector3(0, 0, 1), block.uv_side_front, w, 1, current_vertex, block.color_front)
 
 	# 3. BACK FACE (Normal: 0, 0, -1) - Facing toward -Z
 	current_vertex = add_face(st, [
 		Vector3(x0, y0, z0), Vector3(x1, y0, z0),
 		Vector3(x1, y1, z0), Vector3(x0, y1, z0)
-	], Vector3(0, 0, -1), block.uv_side_back, w, 1, current_vertex, block.albedo_color)
+	], Vector3(0, 0, -1), block.uv_side_back, w, 1, current_vertex, block.color_back)
 
 	# 4. RIGHT FACE (Normal: 1, 0, 0) - Facing toward +X
 	current_vertex = add_face(st, [
 		Vector3(x1, y0, z0), Vector3(x1, y0, z1),
 		Vector3(x1, y1, z1), Vector3(x1, y1, z0)
-	], Vector3(1, 0, 0), block.uv_side_right, d, 1, current_vertex, block.albedo_color)
+	], Vector3(1, 0, 0), block.uv_side_right, d, 1, current_vertex, block.color_right)
 
 	# 5. LEFT FACE (Normal: -1, 0, 0) - Facing toward -X
 	current_vertex = add_face(st, [
 		Vector3(x0, y0, z1), Vector3(x0, y0, z0),
 		Vector3(x0, y1, z0), Vector3(x0, y1, z1)
-	], Vector3(-1, 0, 0), block.uv_side_left, d, 1, current_vertex, block.albedo_color)
+	], Vector3(-1, 0, 0), block.uv_side_left, d, 1, current_vertex, block.color_left)
 
 	return current_vertex
 
