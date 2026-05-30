@@ -241,11 +241,16 @@ func _build_chunk_mesh(cc: Vector3i, snap: Dictionary) -> Dictionary:
 	var output := {"mesh": null, "boxes": []}
 	if not snap.has(cc): return output
 	var data: PackedByteArray = snap[cc]
+
+	var block_cache: Dictionary = {}
 	var empty := true
 	for i in range(CHUNK_VOLUME):
-		if data[i] != 0:
+		var id: int = data[i]
+		if id != 0:
 			empty = false
-			break
+			if not block_cache.has(id):
+				block_cache[id] = block_registry.get_block(id)
+
 	if empty: return output
 	var verts := PackedVector3Array()
 	var normals := PackedVector3Array()
@@ -262,7 +267,7 @@ func _build_chunk_mesh(cc: Vector3i, snap: Dictionary) -> Dictionary:
 			for lx in range(CHUNK_SIZE):
 				var id: int = data[lx + (ly * CHUNK_SIZE) + (lz * CHUNK_LAYER)]
 				if id == 0: continue
-				var block: BlockType = block_registry.get_block(id)
+				var block: BlockType = block_cache[id]
 				var bh: float = block.height
 				var top_exposed: bool = (ly < CHUNK_SIZE_M1 and (data[lx + ((ly+1) * CHUNK_SIZE) + (lz * CHUNK_LAYER)] == 0 or bh < 1.0)) or (ly == CHUNK_SIZE_M1 and (not snap.has(Vector3i(cc.x, cc.y + 1, cc.z)) or snap[Vector3i(cc.x, cc.y + 1, cc.z)][lx + (0 * CHUNK_SIZE) + (lz * CHUNK_LAYER)] == 0 or bh < 1.0))
 				if top_exposed:
@@ -295,33 +300,33 @@ func _build_chunk_mesh(cc: Vector3i, snap: Dictionary) -> Dictionary:
 					if not left_f.has(k): left_f[k] = []
 					left_f[k].append(Vector2i(lz, ly))
 	for key in top_f:
-		var block: BlockType = block_registry.get_block(key.y)
+		var block: BlockType = block_cache[key.y]
 		var y_base: float = float(key.x) + block.height
 		for q in _greedy(top_f[key]):
 			vert_idx = _emit_quad(verts, normals, uvs, uvs2, colors, indices, vert_idx, Vector3(float(q.x),y_base,float(q.y)), Vector3(float(q.x + q.w),y_base,float(q.y)), Vector3(float(q.x + q.w),y_base,float(q.y + q.d)), Vector3(float(q.x),y_base,float(q.y + q.d)), Vector3(0,1,0), block.uv_top, q.w, q.d, block.color_top)
 			if collision_boxes.size() < MAX_COLLISION_BOXES: collision_boxes.append({"pos": Vector3(float(q.x) + float(q.w)*0.5, float(key.x) + 0.5, float(q.y) + float(q.d)*0.5), "size": Vector3(float(q.w), 1.0, float(q.d))})
 	for key in bot_f:
-		var block: BlockType = block_registry.get_block(key.y)
+		var block: BlockType = block_cache[key.y]
 		var y_base: float = float(key.x)
 		for q in _greedy(bot_f[key]):
 			vert_idx = _emit_quad(verts, normals, uvs, uvs2, colors, indices, vert_idx, Vector3(float(q.x + q.w),y_base,float(q.y)), Vector3(float(q.x),y_base,float(q.y)), Vector3(float(q.x),y_base,float(q.y + q.d)), Vector3(float(q.x + q.w),y_base,float(q.y + q.d)), Vector3(0,-1,0), block.uv_bottom, q.w, q.d, block.color_bottom)
 	for key in front_f:
-		var block: BlockType = block_registry.get_block(key.y)
+		var block: BlockType = block_cache[key.y]
 		var z1f := float(key.x + 1)
 		for q in _greedy(front_f[key]):
 			vert_idx = _emit_quad(verts, normals, uvs, uvs2, colors, indices, vert_idx, Vector3(float(q.x + q.w),float(q.y),z1f), Vector3(float(q.x),float(q.y),z1f), Vector3(float(q.x),float(q.y) + float(q.d) * block.height,z1f), Vector3(float(q.x + q.w),float(q.y) + float(q.d) * block.height,z1f), Vector3(0,0,1), block.uv_side_front, q.w, q.d, block.color_front)
 	for key in back_f:
-		var block: BlockType = block_registry.get_block(key.y)
+		var block: BlockType = block_cache[key.y]
 		var z0b := float(key.x)
 		for q in _greedy(back_f[key]):
 			vert_idx = _emit_quad(verts, normals, uvs, uvs2, colors, indices, vert_idx, Vector3(float(q.x),float(q.y),z0b), Vector3(float(q.x + q.w),float(q.y),z0b), Vector3(float(q.x + q.w),float(q.y) + float(q.d) * block.height,z0b), Vector3(float(q.x),float(q.y) + float(q.d) * block.height,z0b), Vector3(0,0,-1), block.uv_side_back, q.w, q.d, block.color_back)
 	for key in right_f:
-		var block: BlockType = block_registry.get_block(key.y)
+		var block: BlockType = block_cache[key.y]
 		var x1r := float(key.x + 1)
 		for q in _greedy(right_f[key]):
 			vert_idx = _emit_quad(verts, normals, uvs, uvs2, colors, indices, vert_idx, Vector3(x1r,float(q.y),float(q.x)), Vector3(x1r,float(q.y),float(q.x + q.w)), Vector3(x1r,float(q.y) + float(q.d) * block.height,float(q.x + q.w)), Vector3(x1r,float(q.y) + float(q.d) * block.height,float(q.x)), Vector3(1,0,0), block.uv_side_right, q.w, q.d, block.color_right)
 	for key in left_f:
-		var block: BlockType = block_registry.get_block(key.y)
+		var block: BlockType = block_cache[key.y]
 		var x0l := float(key.x)
 		for q in _greedy(left_f[key]):
 			vert_idx = _emit_quad(verts, normals, uvs, uvs2, colors, indices, vert_idx, Vector3(x0l,float(q.y),float(q.x + q.w)), Vector3(x0l,float(q.y),float(q.x)), Vector3(x0l,float(q.y) + float(q.d) * block.height,float(q.x)), Vector3(x0l,float(q.y) + float(q.d) * block.height,float(q.x + q.w)), Vector3(-1,0,0), block.uv_side_left, q.w, q.d, block.color_left)
