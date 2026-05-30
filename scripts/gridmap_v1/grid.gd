@@ -44,6 +44,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			KEY_2: active_block_id = 2
 			KEY_3: active_block_id = 3
 			KEY_4: active_block_id = 4
+			KEY_5: active_block_id = 5
 
 	if event is InputEventMouseButton:
 		if event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
@@ -337,46 +338,30 @@ func _build_chunk_mesh(cc: Vector3i, snap: Dictionary) -> Dictionary:
 					if not bot_f.has(k): bot_f[k] = []
 					bot_f[k].append(Vector2i(lx, lz))
 
-				# ── FRONT (z+1) ──
-				var front_exposed: bool
-				if lz < CHUNK_SIZE_M1:
-					front_exposed = data[lx + ly_stride + lz1_layer] == 0
-				else:
-					front_exposed = (not has_front) or nd_front[lx + ly_stride] == 0
-				if front_exposed:
+				# FRONT
+				var front_nid: int = data[lx + ly_stride + lz1_layer] if lz < CHUNK_SIZE_M1 else (nd_front[lx + ly_stride] if has_front else 0)
+				if front_nid == 0 or (block_cache.has(front_nid) and block_cache[front_nid].height != bh):
 					var k := Vector2i(lz, id)
 					if not front_f.has(k): front_f[k] = []
 					front_f[k].append(Vector2i(lx, ly))
-
-				# ── BACK (z-1) ──
-				var back_exposed: bool
-				if lz > 0:
-					back_exposed = data[lx + ly_stride + lz_1_layer] == 0
-				else:
-					back_exposed = (not has_back) or nd_back[lx + ly_stride + (CHUNK_SIZE_M1 * CHUNK_LAYER)] == 0
-				if back_exposed:
+				
+				# BACK
+				var back_nid: int = data[lx + ly_stride + lz_1_layer] if lz > 0 else (nd_back[lx + ly_stride + (CHUNK_SIZE_M1 * CHUNK_LAYER)] if has_back else 0)
+				if back_nid == 0 or (block_cache.has(back_nid) and block_cache[back_nid].height != bh):
 					var k := Vector2i(lz, id)
 					if not back_f.has(k): back_f[k] = []
 					back_f[k].append(Vector2i(lx, ly))
-
-				# ── RIGHT (x+1) ──
-				var right_exposed: bool
-				if lx < CHUNK_SIZE_M1:
-					right_exposed = data[lx + 1 + ly_stride + lz_layer] == 0
-				else:
-					right_exposed = (not has_right) or nd_right[ly_stride + lz_layer] == 0
-				if right_exposed:
+				
+				# RIGHT
+				var right_nid: int = data[lx + 1 + ly_stride + lz_layer] if lx < CHUNK_SIZE_M1 else (nd_right[ly_stride + lz_layer] if has_right else 0)
+				if right_nid == 0 or (block_cache.has(right_nid) and block_cache[right_nid].height != bh):
 					var k := Vector2i(lx, id)
 					if not right_f.has(k): right_f[k] = []
 					right_f[k].append(Vector2i(lz, ly))
-
-				# ── LEFT (x-1) ──
-				var left_exposed: bool
-				if lx > 0:
-					left_exposed = data[lx - 1 + ly_stride + lz_layer] == 0
-				else:
-					left_exposed = (not has_left) or nd_left[CHUNK_SIZE_M1 + ly_stride + lz_layer] == 0
-				if left_exposed:
+				
+				# LEFT
+				var left_nid: int = data[lx - 1 + ly_stride + lz_layer] if lx > 0 else (nd_left[CHUNK_SIZE_M1 + ly_stride + lz_layer] if has_left else 0)
+				if left_nid == 0 or (block_cache.has(left_nid) and block_cache[left_nid].height != bh):
 					var k := Vector2i(lx, id)
 					if not left_f.has(k): left_f[k] = []
 					left_f[k].append(Vector2i(lz, ly))

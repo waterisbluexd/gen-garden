@@ -13,9 +13,9 @@ class_name BlockType
 @export var uv_side_left:   int
 @export var uv_side_right:  int
 
-@export var color_top:        Color = Color.WHITE
-@export var color_front:      Color = Color.WHITE
-@export var color_back:       Color = Color.WHITE
-@export var color_left:       Color = Color.WHITE
-@export var color_right:      Color = Color.WHITE
-@export var color_bottom:     Color = Color.WHITE
+@export var color_top:    Color = Color(1.0,  1.0,  1.0,  1.0)
+@export var color_front:  Color = Color(0.85, 0.85, 0.85, 1.0)
+@export var color_back:   Color = Color(0.75, 0.75, 0.75, 1.0)
+@export var color_left:   Color = Color(0.7,  0.7,  0.7,  1.0)
+@export var color_right:  Color = Color(0.7,  0.7,  0.7,  1.0)
+@export var color_bottom: Color = Color(0.5,  0.5,  0.5,  1.0)

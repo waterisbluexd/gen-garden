@@ -6,8 +6,9 @@
 [ext_resource type="Resource" uid="uid://u7c5nqskq5yo" path="res://resources/block type data/block_grass.tres" id="4_rn2iy"]
 [ext_resource type="Resource" uid="uid://3d7fu6ensj3" path="res://resources/block type data/block_farmland.tres" id="5_lp2o2"]
 [ext_resource type="Script" uid="uid://djhkuer2oowes" path="res://resources/block_data_builder/block_registry.gd" id="6_n4t7f"]
+[ext_resource type="Resource" uid="uid://cvpim4uegymf7" path="res://resources/block type data/block_half_stone_brick.tres" id="6_v70mh"]
 
 [resource]
 script = ExtResource("6_n4t7f")
-blocks = Array[ExtResource("1_lp2o2")]([ExtResource("4_rn2iy"), ExtResource("5_lp2o2"), ExtResource("3_54u80"), ExtResource("2_54u80")])
+blocks = Array[ExtResource("1_lp2o2")]([ExtResource("4_rn2iy"), ExtResource("5_lp2o2"), ExtResource("3_54u80"), ExtResource("2_54u80"), ExtResource("6_v70mh")])
 metadata/_custom_type_script = "uid://djhkuer2oowes"
