@@ -6,7 +6,9 @@ uniform sampler2DArray texture_array : source_color, filter_nearest, repeat_enab
 void fragment() {
     float layer = UV2.x;
     vec4 tex_color = texture(texture_array, vec3(UV, layer));
-    // COLOR.rgb carries face shading * AO baked at mesh build time
-    ALBEDO = tex_color.rgb * COLOR.rgb;
+    
+    // Only drop pixels where the texture alpha is transparent
     if (tex_color.a < 0.5) discard;
+    
+    ALBEDO = tex_color.rgb * COLOR.rgb;
 }

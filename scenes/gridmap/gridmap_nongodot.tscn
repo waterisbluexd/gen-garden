@@ -3,13 +3,9 @@
 [ext_resource type="Script" uid="uid://blvietsg46brq" path="res://scripts/gridmap_v1/gridmap_nongodot.gd" id="1_08thi"]
 [ext_resource type="Script" uid="uid://e68r13nd63h3" path="res://scripts/gridmap_v1/grid.gd" id="1_xen7v"]
 [ext_resource type="CompressedTexture2DArray" uid="uid://p706u2usufy1" path="res://assets/texture/packs/blocks/block_sprite.png" id="4_ltgo2"]
-[ext_resource type="Shader" uid="uid://cpgm31t26c55j" path="res://shaders/gridmap_blockshader/block_shader.gdshader" id="4_yxiws"]
+[ext_resource type="Material" uid="uid://cii3jgxnwogdv" path="res://shaders/gridmap_blockshader/mat_voxel_opaque.tres" id="5_a1lbn"]
 [ext_resource type="Resource" uid="uid://cjqnqqjx1w5rs" path="res://resources/block type data/block_registry.tres" id="5_fqwpn"]
-
-[sub_resource type="ShaderMaterial" id="ShaderMaterial_a1lbn"]
-render_priority = 0
-shader = ExtResource("4_yxiws")
-shader_parameter/texture_array = ExtResource("4_ltgo2")
+[ext_resource type="Material" uid="uid://cxlywnlywirts" path="res://shaders/gridmap_blockshader/mat_voxel_transparent.tres" id="6_06pej"]
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_08thi"]
 size = Vector3(200, 1, 200)
@@ -20,8 +16,9 @@ script = ExtResource("1_08thi")
 [node name="grid" type="Node3D" parent="." unique_id=1191816885]
 script = ExtResource("1_xen7v")
 atlas_texture = ExtResource("4_ltgo2")
-atlas_shader = SubResource("ShaderMaterial_a1lbn")
 block_registry = ExtResource("5_fqwpn")
+atlas_shader_opaque = ExtResource("5_a1lbn")
+atlas_shader_transparent = ExtResource("6_06pej")
 base_block_id = 3
 
 [node name="StaticBody3D" type="StaticBody3D" parent="grid" unique_id=15182362]

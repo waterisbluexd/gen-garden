@@ -1,0 +1,9 @@
+[gd_resource type="ShaderMaterial" format=3 uid="uid://cxlywnlywirts"]
+
+[ext_resource type="Shader" uid="uid://bh1sg64tqi1iy" path="res://shaders/gridmap_blockshader/voxel_transparent.gdshader" id="1_1snaa"]
+[ext_resource type="CompressedTexture2DArray" uid="uid://p706u2usufy1" path="res://assets/texture/packs/blocks/block_sprite.png" id="2_rhviy"]
+
+[resource]
+render_priority = 0
+shader = ExtResource("1_1snaa")
+shader_parameter/texture_array = ExtResource("2_rhviy")

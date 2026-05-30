@@ -47,13 +47,14 @@ camera3dpivot = NodePath("../../camera/camera_pivot")
 
 [node name="DirectionalLight3D" type="DirectionalLight3D" parent="Lighting" unique_id=108154351]
 transform = Transform3D(-0.8660254, -0.34018144, 0.36643776, 0, 0.73287547, 0.6803628, -0.50000006, 0.58921146, -0.63468874, 0, 34.902924, 0)
+visible = false
 light_color = Color(0.8400788, 0.7877507, 0.7351351, 1)
 light_energy = 2.0
 shadow_enabled = true
 shadow_blur = 0.478
 directional_shadow_pancake_size = 23.4
 
-[node name="WorldEnvironment" type="WorldEnvironment" parent="Lighting/DirectionalLight3D" unique_id=1072631121]
+[node name="WorldEnvironment" type="WorldEnvironment" parent="Lighting" unique_id=1072631121]
 environment = SubResource("Environment_jyhfs")
 
 [node name="camera" type="Node" parent="." unique_id=1827128386]
