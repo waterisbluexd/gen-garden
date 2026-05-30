@@ -37,10 +37,11 @@ region = Rect2(0, 0, 32, 32)
 
 [node name="main_map" parent="Main_map" unique_id=548471170 instance=ExtResource("1_o5qli")]
 visible = false
-camera_path = NodePath("../../camera/camera_pivot/Camera3D")
+script = null
 
-[node name="gridmap_nongodot" parent="Main_map" unique_id=1859242578 node_paths=PackedStringArray("camera3d") instance=ExtResource("2_o6xl0")]
+[node name="gridmap_nongodot" parent="Main_map" unique_id=1859242578 node_paths=PackedStringArray("camera3d", "camera3dpivot") instance=ExtResource("2_o6xl0")]
 camera3d = NodePath("../../camera/camera_pivot/Camera3D")
+camera3dpivot = NodePath("../../camera/camera_pivot")
 
 [node name="Lighting" type="Node" parent="." unique_id=1221003527]
 
@@ -63,10 +64,10 @@ script = ExtResource("2_sugp2")
 gridmapinuse = NodePath(".")
 
 [node name="Camera3D" type="Camera3D" parent="camera/camera_pivot" unique_id=1036373830]
-transform = Transform3D(1, 0, 0, 0, 0.86602527, 0.49999994, 0, -0.49999994, 0.86602527, 0, 14.352463, 20.248808)
+transform = Transform3D(1, 0, 0, 0, 0.86602527, 0.49999994, 0, -0.49999994, 0.86602527, 0, 35.178635, 56.320797)
 projection = 1
 size = 26.979
-far = 64.65
+far = 134.46
 script = ExtResource("3_jyhfs")
 
 [node name="UI" type="CanvasLayer" parent="." unique_id=1467437154]

@@ -1,13 +1,14 @@
 extends Node3D
 
 @export var camera3d: Camera3D
+@export var camera3dpivot: Node3D
 @onready var grid: Grid = $grid
 
 func _init() -> void:
 	RenderingServer.set_debug_generate_wireframes(true)
 
 func _ready() -> void:
-	grid.camera = camera3d
+	grid.camera = camera3dpivot
 	get_viewport().debug_draw = Viewport.DEBUG_DRAW_WIREFRAME
 
 func _input(event: InputEvent) -> void:

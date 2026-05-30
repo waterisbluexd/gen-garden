@@ -8,25 +8,34 @@ class_name Grid
 @export_group("Base Layer Options")
 @export var generate_base_layer: bool = true
 @export var base_block_id: int = 2
-@export var base_width: int = 512
-@export var base_depth: int = 512
+@export var base_width: int = 64
+@export var base_depth: int = 64
 @export var base_y_level: int = 0
 
 const CHUNK_SIZE: int = 32
+const CHUNK_SIZE_M1: int = 31
+const CHUNK_VOLUME: int = 32 * 32 * 32
+const CHUNK_LAYER: int = 32 * 32
+const MAX_COLLISION_BOXES: int = 64
 
-var cells: Dictionary = {}
-var chunk_to_cells: Dictionary = {}
+var chunks: Dictionary = {}
 var chunk_nodes: Dictionary = {}
 
-var camera: Camera3D
+var rebuild_queue: Dictionary = {}
+var chunks_processing: Dictionary = {}
+@export var chunks_per_frame_budget: int = 2
+
+var camera: Node3D
 var active_block_id: int = 1
 
 func _ready() -> void:
 	if has_node("StaticBody3D"):
 		$StaticBody3D.queue_free()
-		
 	if generate_base_layer:
-		fill(base_width, base_depth, base_block_id, base_y_level)
+		generate_world_progressive()
+
+func _process(_delta: float) -> void:
+	process_rebuild_queue()
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed:
@@ -42,6 +51,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		if event.button_index == MOUSE_BUTTON_RIGHT and event.pressed:
 			remove_block_from_mouse()
 
+@warning_ignore("integer_division")
 func get_chunk_coord(global_pos: Vector3i) -> Vector3i:
 	return Vector3i(
 		floori(float(global_pos.x) / CHUNK_SIZE),
@@ -49,291 +59,317 @@ func get_chunk_coord(global_pos: Vector3i) -> Vector3i:
 		floori(float(global_pos.z) / CHUNK_SIZE)
 	)
 
-func ensure_chunk_node(chunk_coord: Vector3i) -> void:
-	if chunk_nodes.has(chunk_coord): return
-	
-	var chunk_node = Node3D.new()
-	chunk_node.name = "Chunk_%d_%d_%d" % [chunk_coord.x, chunk_coord.y, chunk_coord.z]
-	add_child(chunk_node)
-	
-	var mi = MeshInstance3D.new()
-	chunk_node.add_child(mi)
-	
-	var body = StaticBody3D.new()
-	chunk_node.add_child(body)
-	
-	var shape = CollisionShape3D.new()
-	body.add_child(shape)
-	
-	chunk_nodes[chunk_coord] = {
-		"node": chunk_node,
-		"mesh_instance": mi,
-		"collision_shape": shape
-	}
+func get_global_voxel(global_pos: Vector3i) -> int:
+	var cc := get_chunk_coord(global_pos)
+	if not chunks.has(cc):
+		return 0
+	var lx: int = posmod(global_pos.x, CHUNK_SIZE)
+	var ly: int = posmod(global_pos.y, CHUNK_SIZE)
+	var lz: int = posmod(global_pos.z, CHUNK_SIZE)
+	return chunks[cc][lx + (ly * CHUNK_SIZE) + (lz * CHUNK_LAYER)]
 
-func place_block_from_mouse(block_id: int) -> void:
-	if camera == null: return
-	var result = camera.raycast_from_screen(get_viewport().get_mouse_position())
-	if result.is_empty(): return
-	
-	var target = result.position + result.normal * 0.5
-	set_cell(floori(target.x), floori(target.y), floori(target.z), block_id)
-
-func remove_block_from_mouse() -> void:
-	if camera == null: return
-	var result = camera.raycast_from_screen(get_viewport().get_mouse_position())
-	if result.is_empty(): return
-	
-	var target = result.position - result.normal * 0.5
-	remove_cell(floori(target.x), floori(target.y), floori(target.z))
+func generate_world_progressive() -> void:
+	var affected: Dictionary = {}
+	var ly: int = posmod(base_y_level, CHUNK_SIZE)
+	for z in range(base_depth):
+		for x in range(base_width):
+			var global_pos := Vector3i(x, base_y_level, z)
+			var cc := get_chunk_coord(global_pos)
+			if not chunks.has(cc):
+				var c := PackedByteArray()
+				c.resize(CHUNK_VOLUME)
+				chunks[cc] = c
+			var lx: int = posmod(x, CHUNK_SIZE)
+			var lz: int = posmod(z, CHUNK_SIZE)
+			chunks[cc][lx + (ly * CHUNK_SIZE) + (lz * CHUNK_LAYER)] = base_block_id
+			affected[cc] = true
+	for c in affected:
+		rebuild_queue[c] = true
 
 func set_cell(x: int, y: int, z: int, block_id: int) -> void:
 	var global_pos := Vector3i(x, y, z)
-	cells[global_pos] = block_id
-	
-	var chunk_coord = get_chunk_coord(global_pos)
-	if not chunk_to_cells.has(chunk_coord):
-		chunk_to_cells[chunk_coord] = {}
-	chunk_to_cells[chunk_coord][global_pos] = true
-	
-	rebuild_chunks_for_block(global_pos)
+	var cc := get_chunk_coord(global_pos)
+	if not chunks.has(cc):
+		var c := PackedByteArray()
+		c.resize(CHUNK_VOLUME)
+		chunks[cc] = c
+	chunks[cc][posmod(x, CHUNK_SIZE) + (posmod(y, CHUNK_SIZE) * CHUNK_SIZE) + (posmod(z, CHUNK_SIZE) * CHUNK_LAYER)] = block_id
+	_queue_block_neighbors(global_pos)
 
 func remove_cell(x: int, y: int, z: int) -> void:
 	var global_pos := Vector3i(x, y, z)
-	if not cells.has(global_pos): return
-	
-	cells.erase(global_pos)
-	
-	var chunk_coord = get_chunk_coord(global_pos)
-	if chunk_to_cells.has(chunk_coord):
-		chunk_to_cells[chunk_coord].erase(global_pos)
-		if chunk_to_cells[chunk_coord].is_empty():
-			chunk_to_cells.erase(chunk_coord)
-			
-	rebuild_chunks_for_block(global_pos)
+	var cc := get_chunk_coord(global_pos)
+	if not chunks.has(cc): return
+	chunks[cc][posmod(x, CHUNK_SIZE) + (posmod(y, CHUNK_SIZE) * CHUNK_SIZE) + (posmod(z, CHUNK_SIZE) * CHUNK_LAYER)] = 0
+	_queue_block_neighbors(global_pos)
 
-func fill(width: int, depth: int, block_id: int, y: int = 0) -> void:
-	var affected_chunks := {}
-	
-	for z in range(depth):
-		for x in range(width):
-			var global_pos := Vector3i(x, y, z)
-			cells[global_pos] = block_id
-			
-			var chunk_coord = get_chunk_coord(global_pos)
-			if not chunk_to_cells.has(chunk_coord):
-				chunk_to_cells[chunk_coord] = {}
-			chunk_to_cells[chunk_coord][global_pos] = true
-			affected_chunks[chunk_coord] = true
-			
-	for c in affected_chunks.keys():
-		rebuild_chunk_mesh(c)
+func _queue_block_neighbors(global_pos: Vector3i) -> void:
+	var cc := get_chunk_coord(global_pos)
+	rebuild_queue[cc] = true
+	var lx: int = posmod(global_pos.x, CHUNK_SIZE)
+	var ly: int = posmod(global_pos.y, CHUNK_SIZE)
+	var lz: int = posmod(global_pos.z, CHUNK_SIZE)
+	if lx == 0: rebuild_queue[cc + Vector3i(-1, 0, 0)] = true
+	if lx == CHUNK_SIZE_M1: rebuild_queue[cc + Vector3i(1, 0, 0)] = true
+	if ly == 0: rebuild_queue[cc + Vector3i(0, -1, 0)] = true
+	if ly == CHUNK_SIZE_M1: rebuild_queue[cc + Vector3i(0, 1, 0)] = true
+	if lz == 0: rebuild_queue[cc + Vector3i(0, 0, -1)] = true
+	if lz == CHUNK_SIZE_M1: rebuild_queue[cc + Vector3i(0, 0, 1)] = true
 
-func rebuild_chunks_for_block(global_pos: Vector3i) -> void:
-	var chunk_coord = get_chunk_coord(global_pos)
-	var chunks_to_rebuild := { chunk_coord: true }
-	
-	var local_x = posmod(global_pos.x, CHUNK_SIZE)
-	var local_y = posmod(global_pos.y, CHUNK_SIZE)
-	var local_z = posmod(global_pos.z, CHUNK_SIZE)
-	
-	if local_x == 0: chunks_to_rebuild[chunk_coord + Vector3i(-1, 0, 0)] = true
-	if local_x == CHUNK_SIZE - 1: chunks_to_rebuild[chunk_coord + Vector3i(1, 0, 0)] = true
-	if local_y == 0: chunks_to_rebuild[chunk_coord + Vector3i(0, -1, 0)] = true
-	if local_y == CHUNK_SIZE - 1: chunks_to_rebuild[chunk_coord + Vector3i(0, 1, 0)] = true
-	if local_z == 0: chunks_to_rebuild[chunk_coord + Vector3i(0, 0, -1)] = true
-	if local_z == CHUNK_SIZE - 1: chunks_to_rebuild[chunk_coord + Vector3i(0, 0, 1)] = true
-	
-	for c in chunks_to_rebuild.keys():
-		rebuild_chunk_mesh(c)
+func dda_raycast(ray_origin: Vector3, ray_direction: Vector3, max_distance: float) -> Dictionary:
+	var dir := ray_direction.normalized()
+	var map_pos := Vector3i(floori(ray_origin.x), floori(ray_origin.y), floori(ray_origin.z))
+	var delta_dist := Vector3(
+		abs(1.0 / (dir.x if dir.x != 0.0 else 0.00001)),
+		abs(1.0 / (dir.y if dir.y != 0.0 else 0.00001)),
+		abs(1.0 / (dir.z if dir.z != 0.0 else 0.00001))
+	)
+	var step := Vector3i.ZERO
+	var side_dist := Vector3.ZERO
+	if dir.x < 0:
+		step.x = -1
+		side_dist.x = (ray_origin.x - map_pos.x) * delta_dist.x
+	else:
+		step.x = 1
+		side_dist.x = (map_pos.x + 1.0 - ray_origin.x) * delta_dist.x
+	if dir.y < 0:
+		step.y = -1
+		side_dist.y = (ray_origin.y - map_pos.y) * delta_dist.y
+	else:
+		step.y = 1
+		side_dist.y = (map_pos.y + 1.0 - ray_origin.y) * delta_dist.y
+	if dir.z < 0:
+		step.z = -1
+		side_dist.z = (ray_origin.z - map_pos.z) * delta_dist.z
+	else:
+		step.z = 1
+		side_dist.z = (map_pos.z + 1.0 - ray_origin.z) * delta_dist.z
+	var total_dist: float = 0.0
+	var last_axis := Vector3i.ZERO 
+	while total_dist < max_distance:
+		if side_dist.x < side_dist.y and side_dist.x < side_dist.z:
+			total_dist = side_dist.x
+			side_dist.x += delta_dist.x
+			map_pos.x += step.x
+			last_axis = Vector3i(-step.x, 0, 0)
+		elif side_dist.y < side_dist.z:
+			total_dist = side_dist.y
+			side_dist.y += delta_dist.y
+			map_pos.y += step.y
+			last_axis = Vector3i(0, -step.y, 0)
+		else:
+			total_dist = side_dist.z
+			side_dist.z += delta_dist.z
+			map_pos.z += step.z
+			last_axis = Vector3i(0, 0, -step.z)
+		if total_dist > max_distance: break
+		if get_global_voxel(map_pos) != 0: 
+			return {"hit": true, "position": map_pos, "normal": last_axis}
+	return {"hit": false, "position": Vector3i.ZERO, "normal": Vector3i.ZERO}
 
-func rebuild_chunk_mesh(chunk_coord: Vector3i) -> void:
-	var new_mesh = generate_chunk_mesh_data(chunk_coord)
-	apply_mesh_to_chunk_node(chunk_coord, new_mesh)
+func place_block_from_mouse(block_id: int) -> void:
+	if camera == null: return
+	var ray: Dictionary = camera.raycast_from_screen(get_viewport().get_mouse_position())
+	var result: Dictionary = dda_raycast(ray["origin"], ray["direction"], 500.0)
+	if not result["hit"]: return
+	var target: Vector3i = result["position"] + result["normal"]
+	set_cell(target.x, target.y, target.z, block_id)
 
-func generate_chunk_mesh_data(chunk_coord: Vector3i) -> ArrayMesh:
-	if not chunk_to_cells.has(chunk_coord) or chunk_to_cells[chunk_coord].is_empty():
-		return null
+func remove_block_from_mouse() -> void:
+	if camera == null: return
+	var ray: Dictionary = camera.raycast_from_screen(get_viewport().get_mouse_position())
+	var result: Dictionary = dda_raycast(ray["origin"], ray["direction"], 500.0)
+	if not result["hit"]: return
+	var hit: Vector3i = result["position"]
+	remove_cell(hit.x, hit.y, hit.z)
 
-	var st := SurfaceTool.new()
-	st.begin(Mesh.PRIMITIVE_TRIANGLES)
-	var vertex_counter: int = 0
+func process_rebuild_queue() -> void:
+	if rebuild_queue.is_empty(): return
+	var budget := chunks_per_frame_budget
+	for cc in rebuild_queue.keys():
+		if budget <= 0: break
+		if chunks_processing.has(cc): continue
+		rebuild_queue.erase(cc)
+		chunks_processing[cc] = true
+		_dispatch_chunk_thread(cc)
+		budget -= 1
 
-	var top_faces: Dictionary = {}
-	var bottom_faces: Dictionary = {}
-	var front_faces: Dictionary = {}
-	var back_faces: Dictionary = {}
-	var right_faces: Dictionary = {}
-	var left_faces: Dictionary = {}
+func _dispatch_chunk_thread(cc: Vector3i) -> void:
+	var snap: Dictionary = {}
+	for dir in [Vector3i(0,0,0), Vector3i(1,0,0), Vector3i(-1,0,0), Vector3i(0,1,0), Vector3i(0,-1,0), Vector3i(0,0,1), Vector3i(0,0,-1)]:
+		var nc: Vector3i = cc + dir
+		if chunks.has(nc): snap[nc] = chunks[nc].duplicate()
+	WorkerThreadPool.add_task(func():
+		var result := _build_chunk_mesh(cc, snap)
+		call_deferred("_apply_mesh", cc, result)
+	)
 
-	for coord in chunk_to_cells[chunk_coord].keys():
-		var id: int = cells[coord]
-		var block = block_registry.get_block(id)
-		var key := Vector2i(coord.y, id)
-		var key_z := Vector2i(coord.z, id)
-		var key_x := Vector2i(coord.x, id)
-
-		var top_coord = Vector3i(coord.x, coord.y + 1, coord.z)
-		if not cells.has(top_coord) or block.height < 1.0:
-			if not top_faces.has(key): top_faces[key] = []
-			top_faces[key].append(Vector2i(coord.x, coord.z))
-			
-		var bottom_coord = Vector3i(coord.x, coord.y - 1, coord.z)
-		if not cells.has(bottom_coord) or block_registry.get_block(cells[bottom_coord]).height < 1.0:
-			if not bottom_faces.has(key): bottom_faces[key] = []
-			bottom_faces[key].append(Vector2i(coord.x, coord.z))
-
-		var front_coord = Vector3i(coord.x, coord.y, coord.z + 1)
-		if not cells.has(front_coord) or block_registry.get_block(cells[front_coord]).height < block.height:
-			if not front_faces.has(key_z): front_faces[key_z] = []
-			front_faces[key_z].append(Vector2i(coord.x, coord.y))
-			
-		var back_coord = Vector3i(coord.x, coord.y, coord.z - 1)
-		if not cells.has(back_coord) or block_registry.get_block(cells[back_coord]).height < block.height:
-			if not back_faces.has(key_z): back_faces[key_z] = []
-			back_faces[key_z].append(Vector2i(coord.x, coord.y))
-
-		var right_coord = Vector3i(coord.x + 1, coord.y, coord.z)
-		if not cells.has(right_coord) or block_registry.get_block(cells[right_coord]).height < block.height:
-			if not right_faces.has(key_x): right_faces[key_x] = []
-			right_faces[key_x].append(Vector2i(coord.z, coord.y))
-			
-		var left_coord = Vector3i(coord.x - 1, coord.y, coord.z)
-		if not cells.has(left_coord) or block_registry.get_block(cells[left_coord]).height < block.height:
-			if not left_faces.has(key_x): left_faces[key_x] = []
-			left_faces[key_x].append(Vector2i(coord.z, coord.y))
-
-	for key in top_faces.keys():
-		var block = block_registry.get_block(key.y)
-		var quads = greedy_mesh_2d(top_faces[key], true)
-		for q in quads:
-			vertex_counter = add_top_face(st, q.x, key.x, q.y, q.w, q.d, block, vertex_counter)
-
-	for key in bottom_faces.keys():
-		var block = block_registry.get_block(key.y)
-		var quads = greedy_mesh_2d(bottom_faces[key], true)
-		for q in quads:
-			vertex_counter = add_bottom_face(st, q.x, key.x, q.y, q.w, q.d, block, vertex_counter)
-
-	for key in front_faces.keys():
-		var block = block_registry.get_block(key.y)
-		var quads = greedy_mesh_2d(front_faces[key], block.height == 1.0)
-		for q in quads:
-			vertex_counter = add_front_face(st, q.x, q.y, key.x, q.w, q.d, block, vertex_counter)
-
-	for key in back_faces.keys():
-		var block = block_registry.get_block(key.y)
-		var quads = greedy_mesh_2d(back_faces[key], block.height == 1.0)
-		for q in quads:
-			vertex_counter = add_back_face(st, q.x, q.y, key.x, q.w, q.d, block, vertex_counter)
-
-	for key in right_faces.keys():
-		var block = block_registry.get_block(key.y)
-		var quads = greedy_mesh_2d(right_faces[key], block.height == 1.0)
-		for q in quads:
-			vertex_counter = add_right_face(st, key.x, q.y, q.x, q.d, q.w, block, vertex_counter)
-
-	for key in left_faces.keys():
-		var block = block_registry.get_block(key.y)
-		var quads = greedy_mesh_2d(left_faces[key], block.height == 1.0)
-		for q in quads:
-			vertex_counter = add_left_face(st, key.x, q.y, q.x, q.d, q.w, block, vertex_counter)
-
-	var mat: ShaderMaterial = atlas_shader.duplicate()
-	mat.set_shader_parameter("albedo_texture", atlas_texture)
-	st.set_material(mat)
-
-	var array_mesh := ArrayMesh.new()
-	st.commit(array_mesh)
-	return array_mesh
-
-func apply_mesh_to_chunk_node(chunk_coord: Vector3i, array_mesh: ArrayMesh) -> void:
-	if array_mesh == null:
-		if chunk_nodes.has(chunk_coord):
-			chunk_nodes[chunk_coord].mesh_instance.mesh = null
-			chunk_nodes[chunk_coord].collision_shape.shape = null
+func _apply_mesh(cc: Vector3i, result: Dictionary) -> void:
+	chunks_processing.erase(cc)
+	if result.mesh == null:
+		if chunk_nodes.has(cc):
+			chunk_nodes[cc].mi.mesh = null
+			_clear_collision(chunk_nodes[cc].body)
 		return
+	_ensure_chunk_node(cc)
+	var node: Dictionary = chunk_nodes[cc]
+	node.mi.mesh = result.mesh
+	_clear_collision(node.body)
+	for box in result.boxes:
+		var cs := CollisionShape3D.new()
+		var bs := BoxShape3D.new()
+		bs.size = box.size
+		cs.position = box.pos
+		cs.shape = bs
+		node.body.add_child(cs)
 
-	ensure_chunk_node(chunk_coord)
-	var chunk_data = chunk_nodes[chunk_coord]
-	
-	chunk_data.mesh_instance.mesh = array_mesh
-	chunk_data.collision_shape.shape = array_mesh.create_trimesh_shape()
+func _clear_collision(body: StaticBody3D) -> void:
+	for c in body.get_children(): c.queue_free()
 
-func greedy_mesh_2d(coords: Array, allow_vertical_expansion: bool = true) -> Array:
-	var result := []
-	coords.sort_custom(func(a, b): return a.x < b.x if a.x != b.x else a.y < b.y)
+func _ensure_chunk_node(cc: Vector3i) -> void:
+	if chunk_nodes.has(cc): return
+	var node := Node3D.new()
+	add_child(node)
+	node.global_position = Vector3(cc * CHUNK_SIZE)
+	var mi := MeshInstance3D.new()
+	node.add_child(mi)
+	var body := StaticBody3D.new()
+	node.add_child(body)
+	chunk_nodes[cc] = {"node": node, "mi": mi, "body": body}
 
+func _build_chunk_mesh(cc: Vector3i, snap: Dictionary) -> Dictionary:
+	var output := {"mesh": null, "boxes": []}
+	if not snap.has(cc): return output
+	var data: PackedByteArray = snap[cc]
+	var empty := true
+	for i in range(CHUNK_VOLUME):
+		if data[i] != 0:
+			empty = false
+			break
+	if empty: return output
+	var verts := PackedVector3Array()
+	var normals := PackedVector3Array()
+	var uvs := PackedVector2Array()
+	var uvs2 := PackedVector2Array()
+	var colors := PackedColorArray()
+	var indices := PackedInt32Array()
+	var vert_idx: int = 0
+	var collision_boxes: Array = []
+	var top_f: Dictionary = {}; var bot_f: Dictionary = {}; var front_f: Dictionary = {}
+	var back_f: Dictionary = {}; var right_f: Dictionary = {}; var left_f: Dictionary = {}
+	for ly in range(CHUNK_SIZE):
+		for lz in range(CHUNK_SIZE):
+			for lx in range(CHUNK_SIZE):
+				var id: int = data[lx + (ly * CHUNK_SIZE) + (lz * CHUNK_LAYER)]
+				if id == 0: continue
+				var block: BlockType = block_registry.get_block(id)
+				var bh: float = block.height
+				var top_exposed: bool = (ly < CHUNK_SIZE_M1 and (data[lx + ((ly+1) * CHUNK_SIZE) + (lz * CHUNK_LAYER)] == 0 or bh < 1.0)) or (ly == CHUNK_SIZE_M1 and (not snap.has(Vector3i(cc.x, cc.y + 1, cc.z)) or snap[Vector3i(cc.x, cc.y + 1, cc.z)][lx + (0 * CHUNK_SIZE) + (lz * CHUNK_LAYER)] == 0 or bh < 1.0))
+				if top_exposed:
+					var k := Vector2i(ly, id)
+					if not top_f.has(k): top_f[k] = []
+					top_f[k].append(Vector2i(lx, lz))
+				var bot_exposed: bool = (ly > 0 and data[lx + ((ly-1) * CHUNK_SIZE) + (lz * CHUNK_LAYER)] == 0) or (ly == 0 and (not snap.has(Vector3i(cc.x, cc.y - 1, cc.z)) or snap[Vector3i(cc.x, cc.y - 1, cc.z)][lx + (CHUNK_SIZE_M1 * CHUNK_SIZE) + (lz * CHUNK_LAYER)] == 0))
+				if bot_exposed:
+					var k := Vector2i(ly, id)
+					if not bot_f.has(k): bot_f[k] = []
+					bot_f[k].append(Vector2i(lx, lz))
+				var front_exposed: bool = (lz < CHUNK_SIZE_M1 and data[lx + (ly * CHUNK_SIZE) + ((lz+1) * CHUNK_LAYER)] == 0) or (lz == CHUNK_SIZE_M1 and (not snap.has(Vector3i(cc.x, cc.y, cc.z + 1)) or snap[Vector3i(cc.x, cc.y, cc.z + 1)][lx + (ly * CHUNK_SIZE) + (0 * CHUNK_LAYER)] == 0))
+				if front_exposed:
+					var k := Vector2i(lz, id)
+					if not front_f.has(k): front_f[k] = []
+					front_f[k].append(Vector2i(lx, ly))
+				var back_exposed: bool = (lz > 0 and data[lx + (ly * CHUNK_SIZE) + ((lz-1) * CHUNK_LAYER)] == 0) or (lz == 0 and (not snap.has(Vector3i(cc.x, cc.y, cc.z - 1)) or snap[Vector3i(cc.x, cc.y, cc.z - 1)][lx + (ly * CHUNK_SIZE) + (CHUNK_SIZE_M1 * CHUNK_LAYER)] == 0))
+				if back_exposed:
+					var k := Vector2i(lz, id)
+					if not back_f.has(k): back_f[k] = []
+					back_f[k].append(Vector2i(lx, ly))
+				var right_exposed: bool = (lx < CHUNK_SIZE_M1 and data[(lx+1) + (ly * CHUNK_SIZE) + (lz * CHUNK_LAYER)] == 0) or (lx == CHUNK_SIZE_M1 and (not snap.has(Vector3i(cc.x + 1, cc.y, cc.z)) or snap[Vector3i(cc.x + 1, cc.y, cc.z)][0 + (ly * CHUNK_SIZE) + (lz * CHUNK_LAYER)] == 0))
+				if right_exposed:
+					var k := Vector2i(lx, id)
+					if not right_f.has(k): right_f[k] = []
+					right_f[k].append(Vector2i(lz, ly))
+				var left_exposed: bool = (lx > 0 and data[(lx-1) + (ly * CHUNK_SIZE) + (lz * CHUNK_LAYER)] == 0) or (lx == 0 and (not snap.has(Vector3i(cc.x - 1, cc.y, cc.z)) or snap[Vector3i(cc.x - 1, cc.y, cc.z)][CHUNK_SIZE_M1 + (ly * CHUNK_SIZE) + (lz * CHUNK_LAYER)] == 0))
+				if left_exposed:
+					var k := Vector2i(lx, id)
+					if not left_f.has(k): left_f[k] = []
+					left_f[k].append(Vector2i(lz, ly))
+	for key in top_f:
+		var block: BlockType = block_registry.get_block(key.y)
+		var y_base: float = float(key.x) + block.height
+		for q in _greedy(top_f[key]):
+			vert_idx = _emit_quad(verts, normals, uvs, uvs2, colors, indices, vert_idx, Vector3(float(q.x),y_base,float(q.y)), Vector3(float(q.x + q.w),y_base,float(q.y)), Vector3(float(q.x + q.w),y_base,float(q.y + q.d)), Vector3(float(q.x),y_base,float(q.y + q.d)), Vector3(0,1,0), block.uv_top, q.w, q.d, block.color_top)
+			if collision_boxes.size() < MAX_COLLISION_BOXES: collision_boxes.append({"pos": Vector3(float(q.x) + float(q.w)*0.5, float(key.x) + 0.5, float(q.y) + float(q.d)*0.5), "size": Vector3(float(q.w), 1.0, float(q.d))})
+	for key in bot_f:
+		var block: BlockType = block_registry.get_block(key.y)
+		var y_base: float = float(key.x)
+		for q in _greedy(bot_f[key]):
+			vert_idx = _emit_quad(verts, normals, uvs, uvs2, colors, indices, vert_idx, Vector3(float(q.x + q.w),y_base,float(q.y)), Vector3(float(q.x),y_base,float(q.y)), Vector3(float(q.x),y_base,float(q.y + q.d)), Vector3(float(q.x + q.w),y_base,float(q.y + q.d)), Vector3(0,-1,0), block.uv_bottom, q.w, q.d, block.color_bottom)
+	for key in front_f:
+		var block: BlockType = block_registry.get_block(key.y)
+		var z1f := float(key.x + 1)
+		for q in _greedy(front_f[key]):
+			vert_idx = _emit_quad(verts, normals, uvs, uvs2, colors, indices, vert_idx, Vector3(float(q.x + q.w),float(q.y),z1f), Vector3(float(q.x),float(q.y),z1f), Vector3(float(q.x),float(q.y) + float(q.d) * block.height,z1f), Vector3(float(q.x + q.w),float(q.y) + float(q.d) * block.height,z1f), Vector3(0,0,1), block.uv_side_front, q.w, q.d, block.color_front)
+	for key in back_f:
+		var block: BlockType = block_registry.get_block(key.y)
+		var z0b := float(key.x)
+		for q in _greedy(back_f[key]):
+			vert_idx = _emit_quad(verts, normals, uvs, uvs2, colors, indices, vert_idx, Vector3(float(q.x),float(q.y),z0b), Vector3(float(q.x + q.w),float(q.y),z0b), Vector3(float(q.x + q.w),float(q.y) + float(q.d) * block.height,z0b), Vector3(float(q.x),float(q.y) + float(q.d) * block.height,z0b), Vector3(0,0,-1), block.uv_side_back, q.w, q.d, block.color_back)
+	for key in right_f:
+		var block: BlockType = block_registry.get_block(key.y)
+		var x1r := float(key.x + 1)
+		for q in _greedy(right_f[key]):
+			vert_idx = _emit_quad(verts, normals, uvs, uvs2, colors, indices, vert_idx, Vector3(x1r,float(q.y),float(q.x)), Vector3(x1r,float(q.y),float(q.x + q.w)), Vector3(x1r,float(q.y) + float(q.d) * block.height,float(q.x + q.w)), Vector3(x1r,float(q.y) + float(q.d) * block.height,float(q.x)), Vector3(1,0,0), block.uv_side_right, q.w, q.d, block.color_right)
+	for key in left_f:
+		var block: BlockType = block_registry.get_block(key.y)
+		var x0l := float(key.x)
+		for q in _greedy(left_f[key]):
+			vert_idx = _emit_quad(verts, normals, uvs, uvs2, colors, indices, vert_idx, Vector3(x0l,float(q.y),float(q.x + q.w)), Vector3(x0l,float(q.y),float(q.x)), Vector3(x0l,float(q.y) + float(q.d) * block.height,float(q.x)), Vector3(x0l,float(q.y) + float(q.d) * block.height,float(q.x + q.w)), Vector3(-1,0,0), block.uv_side_left, q.w, q.d, block.color_left)
+	if vert_idx == 0: return output
+	var arrays := []
+	arrays.resize(Mesh.ARRAY_MAX)
+	arrays[Mesh.ARRAY_VERTEX] = verts
+	arrays[Mesh.ARRAY_NORMAL] = normals
+	arrays[Mesh.ARRAY_TEX_UV] = uvs
+	arrays[Mesh.ARRAY_TEX_UV2] = uvs2
+	arrays[Mesh.ARRAY_COLOR] = colors
+	arrays[Mesh.ARRAY_INDEX] = indices
+	var mesh := ArrayMesh.new()
+	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	mesh.surface_set_material(0, atlas_shader)
+	output.mesh = mesh
+	output.boxes = collision_boxes
+	return output
+
+func _emit_quad(verts, normals, uvs, uvs2, colors, indices, vi, v0, v1, v2, v3, normal, tile_index, u_tiles, v_tiles, col) -> int:
+	verts.append(v0); verts.append(v1); verts.append(v2); verts.append(v3)
+	normals.append(normal); normals.append(normal); normals.append(normal); normals.append(normal)
+	uvs.append(Vector2(0, v_tiles)); uvs.append(Vector2(u_tiles, v_tiles)); uvs.append(Vector2(u_tiles, 0)); uvs.append(Vector2(0, 0))
+	var ti := Vector2(float(tile_index), 0.0)
+	uvs2.append(ti); uvs2.append(ti); uvs2.append(ti); uvs2.append(ti)
+	colors.append(col); colors.append(col); colors.append(col); colors.append(col)
+	indices.append(vi); indices.append(vi+1); indices.append(vi+2); indices.append(vi); indices.append(vi+2); indices.append(vi+3)
+	return vi + 4
+
+func _greedy(coords: Array) -> Array:
 	var cell_set: Dictionary = {}
-	for c in coords:
-		cell_set[c] = true
-
+	for c in coords: cell_set[c] = true
+	coords.sort()
 	var visited: Dictionary = {}
-
+	var result: Array = []
 	for coord in coords:
-		if visited.has(coord):
-			continue
-
+		if visited.has(coord): continue
+		var cx: int = coord.x; var cy: int = coord.y
 		var w := 1
-		while cell_set.has(Vector2i(coord.x + w, coord.y)) and not visited.has(Vector2i(coord.x + w, coord.y)):
-			w += 1
-
+		while cell_set.has(Vector2i(cx + w, cy)) and not visited.has(Vector2i(cx + w, cy)): w += 1
 		var d := 1
-		if allow_vertical_expansion:
-			var can_expand := true
-			while can_expand:
-				for i in range(w):
-					if not cell_set.has(Vector2i(coord.x + i, coord.y + d)) or visited.has(Vector2i(coord.x + i, coord.y + d)):
-						can_expand = false
-						break
-				if can_expand:
-					d += 1
-
+		var can_expand := true
+		while can_expand:
+			for i in range(w):
+				if not cell_set.has(Vector2i(cx + i, cy + d)) or visited.has(Vector2i(cx + i, cy + d)):
+					can_expand = false; break
+			if can_expand: d += 1
 		for iz in range(d):
-			for ix in range(w):
-				visited[Vector2i(coord.x + ix, coord.y + iz)] = true
-
-		result.append({"x": coord.x, "y": coord.y, "w": w, "d": d})
+			for ix in range(w): visited[Vector2i(cx + ix, cy + iz)] = true
+		result.append({"x": cx, "y": cy, "w": w, "d": d})
 	return result
-
-func add_top_face(st: SurfaceTool, x: int, y: int, z: int, w: int, d: int, block: BlockType, start_idx: int) -> int:
-	var x0 := float(x); var x1 := float(x + w); var z0 := float(z); var z1 := float(z + d); var y1 := float(y) + block.height
-	var verts := [Vector3(x0, y1, z0), Vector3(x1, y1, z0), Vector3(x1, y1, z1), Vector3(x0, y1, z1)]
-	return add_face(st, verts, Vector3(0, 1, 0), block.uv_top, w, d, start_idx, block.color_top)
-
-func add_bottom_face(st: SurfaceTool, x: int, y: int, z: int, w: int, d: int, block: BlockType, start_idx: int) -> int:
-	var x0 := float(x); var x1 := float(x + w); var z0 := float(z); var z1 := float(z + d); var y0 := float(y)
-	var verts := [Vector3(x1, y0, z0), Vector3(x0, y0, z0), Vector3(x0, y0, z1), Vector3(x1, y0, z1)]
-	return add_face(st, verts, Vector3(0, -1, 0), block.uv_bottom, w, d, start_idx, block.color_bottom)
-
-func add_front_face(st: SurfaceTool, x: int, y: int, z: int, w: int, h: int, block: BlockType, start_idx: int) -> int:
-	var x0 := float(x); var x1 := float(x + w); var z1 := float(z + 1); var y0 := float(y); var y1 := float(y) + (float(h) * block.height)
-	var verts := [Vector3(x1, y0, z1), Vector3(x0, y0, z1), Vector3(x0, y1, z1), Vector3(x1, y1, z1)]
-	return add_face(st, verts, Vector3(0, 0, 1), block.uv_side_front, w, h, start_idx, block.color_front)
-
-func add_back_face(st: SurfaceTool, x: int, y: int, z: int, w: int, h: int, block: BlockType, start_idx: int) -> int:
-	var x0 := float(x); var x1 := float(x + w); var z0 := float(z); var y0 := float(y); var y1 := float(y) + (float(h) * block.height)
-	var verts := [Vector3(x0, y0, z0), Vector3(x1, y0, z0), Vector3(x1, y1, z0), Vector3(x0, y1, z0)]
-	return add_face(st, verts, Vector3(0, 0, -1), block.uv_side_back, w, h, start_idx, block.color_back)
-
-func add_right_face(st: SurfaceTool, x: int, y: int, z: int, h: int, d: int, block: BlockType, start_idx: int) -> int:
-	var x1 := float(x + 1); var z0 := float(z); var z1 := float(z + d); var y0 := float(y); var y1 := float(y) + (float(h) * block.height)
-	var verts := [Vector3(x1, y0, z0), Vector3(x1, y0, z1), Vector3(x1, y1, z1), Vector3(x1, y1, z0)]
-	return add_face(st, verts, Vector3(1, 0, 0), block.uv_side_right, d, h, start_idx, block.color_right)
-
-func add_left_face(st: SurfaceTool, x: int, y: int, z: int, h: int, d: int, block: BlockType, start_idx: int) -> int:
-	var x0 := float(x); var z0 := float(z); var z1 := float(z + d); var y0 := float(y); var y1 := float(y) + (float(h) * block.height)
-	var verts := [Vector3(x0, y0, z1), Vector3(x0, y0, z0), Vector3(x0, y1, z0), Vector3(x0, y1, z1)]
-	return add_face(st, verts, Vector3(-1, 0, 0), block.uv_side_left, d, h, start_idx, block.color_left)
-
-func add_face(st: SurfaceTool, verts: Array, normal: Vector3, tile_index: int, u_tiles: int, v_tiles: int, start_idx: int, face_color: Color) -> int:
-	var uvs := [Vector2(0, v_tiles), Vector2(u_tiles, v_tiles), Vector2(u_tiles, 0), Vector2(0, 0)]
-	for i in range(4):
-		st.set_uv(uvs[i])
-		st.set_uv2(Vector2(float(tile_index), 0.0))
-		st.set_normal(normal)
-		st.set_color(face_color)
-		st.add_vertex(verts[i])
-	st.add_index(start_idx + 0); st.add_index(start_idx + 1); st.add_index(start_idx + 2)
-	st.add_index(start_idx + 0); st.add_index(start_idx + 2); st.add_index(start_idx + 3)
-	return start_idx + 4
