@@ -19,7 +19,12 @@ atlas_texture = ExtResource("4_ltgo2")
 block_registry = ExtResource("5_fqwpn")
 atlas_shader_opaque = ExtResource("5_a1lbn")
 atlas_shader_transparent = ExtResource("6_06pej")
+generate_base_layer = null
 base_block_id = 3
+base_width = null
+base_depth = null
+base_y_level = null
+chunks_per_frame_budget = null
 
 [node name="StaticBody3D" type="StaticBody3D" parent="grid" unique_id=15182362]
 collision_layer = 2147483649

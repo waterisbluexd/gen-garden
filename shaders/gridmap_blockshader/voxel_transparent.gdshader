@@ -7,8 +7,7 @@ void fragment() {
     float layer = UV2.x;
     vec4 tex_color = texture(texture_array, vec3(UV, layer));
     
-    // Only drop pixels where the texture alpha is transparent
     if (tex_color.a < 0.5) discard;
     
-    ALBEDO = tex_color.rgb * COLOR.rgb;
+    ALBEDO = tex_color.rgb * COLOR.rgb * COLOR.a;
 }
