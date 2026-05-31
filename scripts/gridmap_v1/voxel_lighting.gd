@@ -29,7 +29,9 @@ func _hm_get(x: int, z: int) -> int:
 # --- Utility ---
 
 func _ensure_light_chunk(cc: Vector3i) -> PackedByteArray:
-	if light_chunks.has(cc): return light_chunks[cc]
+	if light_chunks.has(cc):
+		if light_chunks[cc].size() == CHUNK_VOLUME:
+			return light_chunks[cc]
 	var lc := PackedByteArray()
 	lc.resize(CHUNK_VOLUME)
 	light_chunks[cc] = lc
@@ -63,14 +65,16 @@ func _is_opaque(block_id: int) -> bool:
 func get_sunlight(pos: Vector3i) -> int:
 	var cc := get_chunk_coord(pos)
 	if not light_chunks.has(cc):
-		# Optimization 3: flat array O(1) lookup instead of Dictionary.get()
 		var h: int = _hm_get(pos.x, pos.z)
 		if h == HM_NONE: return 0
 		return 15 if pos.y > h else 0
 	var lx := posmod(pos.x, CHUNK_SIZE)
 	var ly := posmod(pos.y, CHUNK_SIZE)
 	var lz := posmod(pos.z, CHUNK_SIZE)
-	return light_chunks[cc][lx + (ly * CHUNK_SIZE) + (lz * CHUNK_LAYER)] & 0x0F
+	var idx := lx + (ly * CHUNK_SIZE) + (lz * CHUNK_LAYER)
+	var lc: PackedByteArray = light_chunks[cc]
+	if lc.size() != CHUNK_VOLUME: return 0
+	return lc[idx] & 0x0F
 
 func set_sunlight(pos: Vector3i, val: int) -> void:
 	var cc := get_chunk_coord(pos)
@@ -142,7 +146,10 @@ func get_blocklight(pos: Vector3i) -> int:
 	var lx := posmod(pos.x, CHUNK_SIZE)
 	var ly := posmod(pos.y, CHUNK_SIZE)
 	var lz := posmod(pos.z, CHUNK_SIZE)
-	return (light_chunks[cc][lx + (ly * CHUNK_SIZE) + (lz * CHUNK_LAYER)] >> 4) & 0x0F
+	var idx := lx + (ly * CHUNK_SIZE) + (lz * CHUNK_LAYER)
+	var lc: PackedByteArray = light_chunks[cc]
+	if lc.size() != CHUNK_VOLUME: return 0
+	return (lc[idx] >> 4) & 0x0F
 
 func set_blocklight(pos: Vector3i, val: int) -> void:
 	var cc := get_chunk_coord(pos)

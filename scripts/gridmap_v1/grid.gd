@@ -33,6 +33,7 @@ var chunk_nodes: Dictionary = {}
 var rebuild_queue: Dictionary = {}
 var chunks_processing: Dictionary = {}
 @export var chunks_per_frame_budget: int = 5
+@export var max_view_distance: float = 256.0
 
 var lighting: VoxelLighting
 var _light_mutex := Mutex.new()
@@ -294,12 +295,28 @@ func remove_block_from_mouse() -> void:
 
 # --- Threading & Meshing Orchestration ---
 
+func _is_chunk_in_frustum(cc: Vector3i) -> bool:
+	if camera == null: return true
+	var chunk_center := Vector3(cc * CHUNK_SIZE) + Vector3(CHUNK_SIZE * 0.5, CHUNK_SIZE * 0.5, CHUNK_SIZE * 0.5)
+	
+	if camera.global_position.distance_to(chunk_center) > max_view_distance:
+		return false
+	
+	var aabb := AABB(Vector3(cc * CHUNK_SIZE), Vector3(CHUNK_SIZE, CHUNK_SIZE, CHUNK_SIZE))
+	var planes: Array[Plane] = get_viewport().get_camera_3d().get_frustum()
+	for plane in planes:
+		if plane.is_point_over(aabb.get_support(-plane.normal)):
+			return false
+	return true
+
 func process_rebuild_queue() -> void:
 	if rebuild_queue.is_empty(): return
 	var budget := chunks_per_frame_budget
+
 	for cc in rebuild_queue.keys():
 		if budget <= 0: break
 		if chunks_processing.has(cc): continue
+		if not _is_chunk_in_frustum(cc): continue
 		rebuild_queue.erase(cc)
 		chunks_processing[cc] = true
 		_dispatch_chunk_thread(cc)
@@ -362,6 +379,9 @@ func _apply_mesh(cc: Vector3i, result: Dictionary) -> void:
 	var node: Dictionary = chunk_nodes[cc]
 	node.mi_opaque.mesh = result.opaque_mesh
 	node.mi_trans.mesh = result.transparent_mesh
+	var chunk_aabb := AABB(Vector3.ZERO, Vector3(CHUNK_SIZE, CHUNK_SIZE, CHUNK_SIZE))
+	node.mi_opaque.custom_aabb = chunk_aabb
+	node.mi_trans.custom_aabb = chunk_aabb
 	_clear_collision(node)
 
 	_recycle_buffers(result.opaque_buf, result.trans_buf)
@@ -389,10 +409,13 @@ func _ensure_chunk_node(cc: Vector3i) -> void:
 	var mi_opaque := MeshInstance3D.new()
 	mi_opaque.material_override = atlas_shader_opaque
 	node.add_child(mi_opaque)
+	var chunk_aabb := AABB(Vector3.ZERO, Vector3(CHUNK_SIZE, CHUNK_SIZE, CHUNK_SIZE))
+	mi_opaque.custom_aabb = chunk_aabb
 
 	var mi_trans := MeshInstance3D.new()
 	mi_trans.material_override = atlas_shader_transparent
 	node.add_child(mi_trans)
+	mi_trans.custom_aabb = chunk_aabb
 
 	var body_rid := PhysicsServer3D.body_create()
 	PhysicsServer3D.body_set_mode(body_rid, PhysicsServer3D.BODY_MODE_STATIC)
