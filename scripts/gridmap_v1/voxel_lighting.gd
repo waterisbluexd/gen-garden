@@ -9,16 +9,14 @@ var light_chunks: Dictionary
 var chunks: Dictionary
 var global_heightmap: Dictionary
 var block_registry: BlockRegistry
-var rebuild_queue: Dictionary
 
-func _init(_light_chunks: Dictionary, _chunks: Dictionary, _heightmap: Dictionary, _registry: BlockRegistry, _queue: Dictionary) -> void:
+func _init(_light_chunks: Dictionary, _chunks: Dictionary, _heightmap: Dictionary, _registry: BlockRegistry) -> void:
 	light_chunks = _light_chunks
 	chunks = _chunks
 	global_heightmap = _heightmap
 	block_registry = _registry
-	rebuild_queue = _queue
 
-# --- Utility Functions ---
+# --- Utility ---
 
 func _ensure_light_chunk(cc: Vector3i) -> PackedByteArray:
 	if light_chunks.has(cc): return light_chunks[cc]
@@ -55,9 +53,6 @@ func _is_opaque(block_id: int) -> bool:
 func get_sunlight(pos: Vector3i) -> int:
 	var cc := get_chunk_coord(pos)
 	if not light_chunks.has(cc):
-		# FIX: h == -1 means no heightmap data at all — treat as underground (dark)
-		# Previously this returned 15 for everything above h=-1 (everything),
-		# making uninitialized chunks fully bright. Now defaults to dark.
 		var h: int = global_heightmap.get(Vector2i(pos.x, pos.z), -1)
 		if h == -1: return 0
 		return 15 if pos.y > h else 0
@@ -75,7 +70,8 @@ func set_sunlight(pos: Vector3i, val: int) -> void:
 	var idx := lx + (ly * CHUNK_SIZE) + (lz * CHUNK_LAYER)
 	lc[idx] = (lc[idx] & 0xF0) | (val & 0x0F)
 
-func update_sunlight_propagation(queue: Array) -> void:
+# Returns Dictionary of affected chunk coords — caller adds to rebuild_queue
+func update_sunlight_propagation(queue: Array) -> Dictionary:
 	var dirs := [Vector3i.RIGHT, Vector3i.LEFT, Vector3i.UP, Vector3i.DOWN, Vector3i.FORWARD, Vector3i.BACK]
 	var affected_chunks := {}
 	while not queue.is_empty():
@@ -91,9 +87,10 @@ func update_sunlight_propagation(queue: Array) -> void:
 				set_sunlight(n, target_light)
 				queue.append(n)
 				affected_chunks[get_chunk_coord(n)] = true
-	for cc in affected_chunks: rebuild_queue[cc] = true
+	return affected_chunks
 
-func remove_sunlight(pos: Vector3i) -> void:
+# Returns Dictionary of affected chunk coords
+func remove_sunlight(pos: Vector3i) -> Dictionary:
 	var dirs := [Vector3i.RIGHT, Vector3i.LEFT, Vector3i.UP, Vector3i.DOWN, Vector3i.FORWARD, Vector3i.BACK]
 	var rem_queue := []
 	var prop_queue := []
@@ -117,8 +114,11 @@ func remove_sunlight(pos: Vector3i) -> void:
 				affected_chunks[get_chunk_coord(n)] = true
 			elif nv >= cv:
 				prop_queue.append(n)
-	update_sunlight_propagation(prop_queue)
-	for cc in affected_chunks: rebuild_queue[cc] = true
+
+	var prop_affected := update_sunlight_propagation(prop_queue)
+	for cc in prop_affected:
+		affected_chunks[cc] = true
+	return affected_chunks
 
 # --- Blocklight API ---
 
@@ -139,7 +139,8 @@ func set_blocklight(pos: Vector3i, val: int) -> void:
 	var idx := lx + (ly * CHUNK_SIZE) + (lz * CHUNK_LAYER)
 	lc[idx] = (lc[idx] & 0x0F) | ((val & 0x0F) << 4)
 
-func update_blocklight_propagation(queue: Array) -> void:
+# Returns Dictionary of affected chunk coords
+func update_blocklight_propagation(queue: Array) -> Dictionary:
 	var dirs := [Vector3i.RIGHT, Vector3i.LEFT, Vector3i.UP, Vector3i.DOWN, Vector3i.FORWARD, Vector3i.BACK]
 	var affected_chunks := {}
 	while not queue.is_empty():
@@ -152,9 +153,10 @@ func update_blocklight_propagation(queue: Array) -> void:
 				set_blocklight(n, curr_light - 1)
 				queue.append(n)
 				affected_chunks[get_chunk_coord(n)] = true
-	for cc in affected_chunks: rebuild_queue[cc] = true
+	return affected_chunks
 
-func remove_blocklight(pos: Vector3i) -> void:
+# Returns Dictionary of affected chunk coords
+func remove_blocklight(pos: Vector3i) -> Dictionary:
 	var dirs := [Vector3i.RIGHT, Vector3i.LEFT, Vector3i.UP, Vector3i.DOWN, Vector3i.FORWARD, Vector3i.BACK]
 	var rem_queue := []
 	var prop_queue := []
@@ -178,5 +180,8 @@ func remove_blocklight(pos: Vector3i) -> void:
 				affected_chunks[get_chunk_coord(n)] = true
 			elif nv >= cv:
 				prop_queue.append(n)
-	update_blocklight_propagation(prop_queue)
-	for cc in affected_chunks: rebuild_queue[cc] = true
+
+	var prop_affected := update_blocklight_propagation(prop_queue)
+	for cc in prop_affected:
+		affected_chunks[cc] = true
+	return affected_chunks

@@ -31,6 +31,12 @@ var chunks_processing: Dictionary = {}
 @export var chunks_per_frame_budget: int = 2
 
 var lighting: VoxelLighting
+
+# Mutex guards chunks, light_chunks, global_heightmap.
+# Must be locked by ANY thread reading/writing those dicts
+# (BFS worker thread AND snapshot in _dispatch_chunk_thread).
+var _light_mutex := Mutex.new()
+
 var _buffer_pool: Array[MeshBuffers] = []
 var _pool_mutex := Mutex.new()
 
@@ -44,8 +50,8 @@ func _ready() -> void:
 	if has_node("StaticBody3D"):
 		$StaticBody3D.queue_free()
 		
-	# Initialize our dedicated lighting manager
-	lighting = VoxelLighting.new(light_chunks, chunks, global_heightmap, block_registry, rebuild_queue)
+	# No rebuild_queue passed — lighting is now side-effect free
+	lighting = VoxelLighting.new(light_chunks, chunks, global_heightmap, block_registry)
 	
 	if generate_base_layer:
 		generate_world_progressive()
@@ -118,22 +124,23 @@ func generate_world_progressive() -> void:
 					lighting.set_sunlight(g_pos, 0)
 					var bid := get_global_voxel(g_pos)
 					var emiss := 0
-					
-					# Safe property check for Resources
 					if bid != 0:
 						var block = block_registry.get_block(bid)
 						if block and "emission" in block:
 							emiss = block.emission
-						
 					if emiss > 0:
 						lighting.set_blocklight(g_pos, emiss)
 						
-	if not sun_init_queue.is_empty(): lighting.update_sunlight_propagation(sun_init_queue)
+	if not sun_init_queue.is_empty():
+		lighting.update_sunlight_propagation(sun_init_queue)
 	for c in affected: rebuild_queue[c] = true
 
 func set_cell(x: int, y: int, z: int, block_id: int) -> void:
 	var global_pos := Vector3i(x, y, z)
 	var cc := get_chunk_coord(global_pos)
+
+	# Write voxel data on main thread (fast, no BFS)
+	_light_mutex.lock()
 	if not chunks.has(cc):
 		var c := PackedByteArray()
 		c.resize(CHUNK_VOLUME)
@@ -146,62 +153,97 @@ func set_cell(x: int, y: int, z: int, block_id: int) -> void:
 			global_heightmap[h_key] = y
 	else:
 		if y == global_heightmap.get(h_key, -1):
-			_recalc_heightmap_column(x, z, y)
+			_recalc_heightmap_column_locked(x, z, y)
 
-	if lighting._is_opaque(block_id):
-		lighting.remove_sunlight(global_pos)
-		lighting.remove_blocklight(global_pos)
-	else:
-		var emiss := 0
-		
-		# Safe property check for Resources
-		if block_id != 0:
-			var block = block_registry.get_block(block_id)
-			if block and "emission" in block:
-				emiss = block.emission
-				
-		if emiss > 0:
-			lighting.set_blocklight(global_pos, emiss)
-			lighting.update_blocklight_propagation([global_pos])
-			
-		var sa := lighting.get_sunlight(global_pos + Vector3i.UP)
-		lighting.set_sunlight(global_pos, 15 if sa == 15 else clampi(sa - 1, 0, 15))
-		lighting.update_sunlight_propagation([global_pos])
+	# Capture lighting state needed for BFS before releasing lock
+	var is_opaque := lighting._is_opaque(block_id)
+	var sa_above := lighting.get_sunlight(global_pos + Vector3i.UP)
+	var emiss := 0
+	if not is_opaque and block_id != 0:
+		var block = block_registry.get_block(block_id)
+		if block and "emission" in block:
+			emiss = block.emission
+	_light_mutex.unlock()
 
-	_queue_block_neighbors(global_pos)
+	# Queue BFS on worker thread — main thread is free immediately
+	_queue_block_neighbors(global_pos)  # queue mesh rebuild of neighbors now
+	WorkerThreadPool.add_task(func():
+		_light_mutex.lock()
+		var affected := {}
+		if is_opaque:
+			var a1 := lighting.remove_sunlight(global_pos)
+			var a2 := lighting.remove_blocklight(global_pos)
+			for c in a1: affected[c] = true
+			for c in a2: affected[c] = true
+		else:
+			if emiss > 0:
+				lighting.set_blocklight(global_pos, emiss)
+				var a := lighting.update_blocklight_propagation([global_pos])
+				for c in a: affected[c] = true
+			var sun_val := 15 if sa_above == 15 else clampi(sa_above - 1, 0, 15)
+			lighting.set_sunlight(global_pos, sun_val)
+			var a := lighting.update_sunlight_propagation([global_pos])
+			for c in a: affected[c] = true
+		_light_mutex.unlock()
+		call_deferred("_apply_light_affected", affected)
+	)
 
 func remove_cell(x: int, y: int, z: int) -> void:
 	var global_pos := Vector3i(x, y, z)
 	var cc := get_chunk_coord(global_pos)
-	if not chunks.has(cc): return
+
+	_light_mutex.lock()
+	if not chunks.has(cc):
+		_light_mutex.unlock()
+		return
 	chunks[cc][posmod(x, CHUNK_SIZE) + (posmod(y, CHUNK_SIZE) * CHUNK_SIZE) + (posmod(z, CHUNK_SIZE) * CHUNK_LAYER)] = 0
 	
 	var h_key := Vector2i(x, z)
 	if y == global_heightmap.get(h_key, -1):
-		_recalc_heightmap_column(x, z, y)
-		
+		_recalc_heightmap_column_locked(x, z, y)
+
+	# Sample neighbor light before releasing for BFS seed values
+	var dirs := [Vector3i.UP, Vector3i.DOWN, Vector3i.LEFT, Vector3i.RIGHT, Vector3i.FORWARD, Vector3i.BACK]
 	var max_sun := 0
 	var max_blk := 0
-	var dirs := [Vector3i.UP, Vector3i.DOWN, Vector3i.LEFT, Vector3i.RIGHT, Vector3i.FORWARD, Vector3i.BACK]
 	for d in dirs:
 		var n: Vector3i = global_pos + d
 		var s := lighting.get_sunlight(n)
 		max_sun = 15 if (d == Vector3i.UP and s == 15) else max(max_sun, s - 1)
 		max_blk = max(max_blk, lighting.get_blocklight(n) - 1)
-		
-	if max_sun > 0:
-		lighting.set_sunlight(global_pos, max_sun)
-		lighting.update_sunlight_propagation([global_pos])
-	if max_blk > 0:
-		lighting.set_blocklight(global_pos, max_blk)
-		lighting.update_blocklight_propagation([global_pos])
+	_light_mutex.unlock()
 
 	_queue_block_neighbors(global_pos)
+	WorkerThreadPool.add_task(func():
+		_light_mutex.lock()
+		var affected := {}
+		if max_sun > 0:
+			lighting.set_sunlight(global_pos, max_sun)
+			var a := lighting.update_sunlight_propagation([global_pos])
+			for c in a: affected[c] = true
+		if max_blk > 0:
+			lighting.set_blocklight(global_pos, max_blk)
+			var a := lighting.update_blocklight_propagation([global_pos])
+			for c in a: affected[c] = true
+		_light_mutex.unlock()
+		call_deferred("_apply_light_affected", affected)
+	)
 
-func _recalc_heightmap_column(x: int, z: int, start_y: int) -> void:
+# Called on main thread after BFS completes — safe to write rebuild_queue
+func _apply_light_affected(affected: Dictionary) -> void:
+	for cc in affected:
+		rebuild_queue[cc] = true
+
+# Must be called with _light_mutex already held
+func _recalc_heightmap_column_locked(x: int, z: int, start_y: int) -> void:
 	var h_key := Vector2i(x, z)
 	for y in range(start_y, -1, -1):
-		if get_global_voxel(Vector3i(x, y, z)) != 0:
+		var cc := get_chunk_coord(Vector3i(x, y, z))
+		if not chunks.has(cc): continue
+		var lx: int = posmod(x, CHUNK_SIZE)
+		var ly: int = posmod(y, CHUNK_SIZE)
+		var lz: int = posmod(z, CHUNK_SIZE)
+		if chunks[cc][lx + (ly * CHUNK_SIZE) + (lz * CHUNK_LAYER)] != 0:
 			global_heightmap[h_key] = y
 			return
 	global_heightmap[h_key] = -1
@@ -225,10 +267,7 @@ func _queue_block_neighbors(global_pos: Vector3i) -> void:
 func place_block_from_mouse(block_id: int) -> void:
 	if camera == null: return
 	var ray: Dictionary = camera.raycast_from_screen(get_viewport().get_mouse_position())
-	
-	# Using our decoupled VoxelRaycast utility
 	var result: Dictionary = VoxelRaycast.dda_raycast(ray["origin"], ray["direction"], 500.0, get_global_voxel)
-	
 	if not result["hit"]: return
 	var target: Vector3i = result["position"] + result["normal"]
 	set_cell(target.x, target.y, target.z, block_id)
@@ -236,10 +275,7 @@ func place_block_from_mouse(block_id: int) -> void:
 func remove_block_from_mouse() -> void:
 	if camera == null: return
 	var ray: Dictionary = camera.raycast_from_screen(get_viewport().get_mouse_position())
-	
-	# Using our decoupled VoxelRaycast utility
 	var result: Dictionary = VoxelRaycast.dda_raycast(ray["origin"], ray["direction"], 500.0, get_global_voxel)
-	
 	if not result["hit"]: return
 	var hit: Vector3i = result["position"]
 	remove_cell(hit.x, hit.y, hit.z)
@@ -276,6 +312,8 @@ func _recycle_buffers(b1: MeshBuffers, b2: MeshBuffers) -> void:
 	_pool_mutex.unlock()
 
 func _dispatch_chunk_thread(cc: Vector3i) -> void:
+	# Snapshot under lock so BFS worker can't write while we read
+	_light_mutex.lock()
 	var snap: Dictionary = {}
 	var light_snap: Dictionary = {}
 	for dir in [Vector3i(0,0,0), Vector3i(1,0,0), Vector3i(-1,0,0),
@@ -295,11 +333,11 @@ func _dispatch_chunk_thread(cc: Vector3i) -> void:
 			var h_key := Vector2i(cx, cz)
 			if global_heightmap.has(h_key):
 				h_snap[h_key] = global_heightmap[h_key]
+	_light_mutex.unlock()
 	
 	var bufs := _get_pooled_buffers()
 	
 	WorkerThreadPool.add_task(func():
-		# Delegating to the static VoxelMesher
 		var result := VoxelMesher.build_chunk_mesh(cc, snap, light_snap, h_snap, block_registry, bufs[0], bufs[1], atlas_shader_opaque, atlas_shader_transparent)
 		call_deferred("_apply_mesh", cc, result)
 	)
