@@ -5,16 +5,26 @@ const CHUNK_SIZE: int = 32
 const CHUNK_LAYER: int = 32 * 32
 const CHUNK_VOLUME: int = 32 * 32 * 32
 
+# Optimization 3: flat array heightmap — O(1) vs O(log n) Dictionary
+const HM_WIDTH: int = 256
+const HM_NONE: int = -1
+
 var light_chunks: Dictionary
 var chunks: Dictionary
-var global_heightmap: Dictionary
+var _heightmap_flat: PackedInt32Array  # replaces global_heightmap Dictionary
 var block_registry: BlockRegistry
 
-func _init(_light_chunks: Dictionary, _chunks: Dictionary, _heightmap: Dictionary, _registry: BlockRegistry) -> void:
+func _init(_light_chunks: Dictionary, _chunks: Dictionary, _heightmap: PackedInt32Array, _registry: BlockRegistry) -> void:
 	light_chunks = _light_chunks
 	chunks = _chunks
-	global_heightmap = _heightmap
+	_heightmap_flat = _heightmap
 	block_registry = _registry
+
+# --- Heightmap access ---
+
+func _hm_get(x: int, z: int) -> int:
+	if x < 0 or x >= HM_WIDTH or z < 0 or z >= HM_WIDTH: return HM_NONE
+	return _heightmap_flat[x + z * HM_WIDTH]
 
 # --- Utility ---
 
@@ -53,8 +63,9 @@ func _is_opaque(block_id: int) -> bool:
 func get_sunlight(pos: Vector3i) -> int:
 	var cc := get_chunk_coord(pos)
 	if not light_chunks.has(cc):
-		var h: int = global_heightmap.get(Vector2i(pos.x, pos.z), -1)
-		if h == -1: return 0
+		# Optimization 3: flat array O(1) lookup instead of Dictionary.get()
+		var h: int = _hm_get(pos.x, pos.z)
+		if h == HM_NONE: return 0
 		return 15 if pos.y > h else 0
 	var lx := posmod(pos.x, CHUNK_SIZE)
 	var ly := posmod(pos.y, CHUNK_SIZE)
@@ -70,12 +81,15 @@ func set_sunlight(pos: Vector3i, val: int) -> void:
 	var idx := lx + (ly * CHUNK_SIZE) + (lz * CHUNK_LAYER)
 	lc[idx] = (lc[idx] & 0xF0) | (val & 0x0F)
 
-# Returns Dictionary of affected chunk coords — caller adds to rebuild_queue
+# Returns affected chunk coords dict — caller queues mesh rebuilds
 func update_sunlight_propagation(queue: Array) -> Dictionary:
 	var dirs := [Vector3i.RIGHT, Vector3i.LEFT, Vector3i.UP, Vector3i.DOWN, Vector3i.FORWARD, Vector3i.BACK]
 	var affected_chunks := {}
-	while not queue.is_empty():
-		var pos: Vector3i = queue.pop_front()
+	# Optimization 4: ring buffer — head/tail pointers, no pop_front() O(n) shifts
+	var head := 0
+	while head < queue.size():
+		var pos: Vector3i = queue[head]
+		head += 1
 		var curr_light := get_sunlight(pos)
 		for d in dirs:
 			var n: Vector3i = pos + d
@@ -89,20 +103,20 @@ func update_sunlight_propagation(queue: Array) -> Dictionary:
 				affected_chunks[get_chunk_coord(n)] = true
 	return affected_chunks
 
-# Returns Dictionary of affected chunk coords
 func remove_sunlight(pos: Vector3i) -> Dictionary:
 	var dirs := [Vector3i.RIGHT, Vector3i.LEFT, Vector3i.UP, Vector3i.DOWN, Vector3i.FORWARD, Vector3i.BACK]
-	var rem_queue := []
+	# Optimization 4: ring buffers for both removal and propagation queues
+	var rem_queue := [{"pos": pos, "val": get_sunlight(pos)}]
+	var rem_head := 0
 	var prop_queue := []
 	var affected_chunks := {}
-	var old_val := get_sunlight(pos)
 
 	set_sunlight(pos, 0)
-	rem_queue.append({"pos": pos, "val": old_val})
 	affected_chunks[get_chunk_coord(pos)] = true
 
-	while not rem_queue.is_empty():
-		var curr = rem_queue.pop_front()
+	while rem_head < rem_queue.size():
+		var curr = rem_queue[rem_head]
+		rem_head += 1
 		var cp: Vector3i = curr.pos
 		var cv: int = curr.val
 		for d in dirs:
@@ -139,12 +153,14 @@ func set_blocklight(pos: Vector3i, val: int) -> void:
 	var idx := lx + (ly * CHUNK_SIZE) + (lz * CHUNK_LAYER)
 	lc[idx] = (lc[idx] & 0x0F) | ((val & 0x0F) << 4)
 
-# Returns Dictionary of affected chunk coords
+# Optimization 4: ring buffer — no pop_front() shifts
 func update_blocklight_propagation(queue: Array) -> Dictionary:
 	var dirs := [Vector3i.RIGHT, Vector3i.LEFT, Vector3i.UP, Vector3i.DOWN, Vector3i.FORWARD, Vector3i.BACK]
 	var affected_chunks := {}
-	while not queue.is_empty():
-		var pos: Vector3i = queue.pop_front()
+	var head := 0
+	while head < queue.size():
+		var pos: Vector3i = queue[head]
+		head += 1
 		var curr_light := get_blocklight(pos)
 		for d in dirs:
 			var n: Vector3i = pos + d
@@ -155,20 +171,19 @@ func update_blocklight_propagation(queue: Array) -> Dictionary:
 				affected_chunks[get_chunk_coord(n)] = true
 	return affected_chunks
 
-# Returns Dictionary of affected chunk coords
 func remove_blocklight(pos: Vector3i) -> Dictionary:
 	var dirs := [Vector3i.RIGHT, Vector3i.LEFT, Vector3i.UP, Vector3i.DOWN, Vector3i.FORWARD, Vector3i.BACK]
-	var rem_queue := []
+	var rem_queue := [{"pos": pos, "val": get_blocklight(pos)}]
+	var rem_head := 0
 	var prop_queue := []
 	var affected_chunks := {}
-	var old_val := get_blocklight(pos)
 
 	set_blocklight(pos, 0)
-	rem_queue.append({"pos": pos, "val": old_val})
 	affected_chunks[get_chunk_coord(pos)] = true
 
-	while not rem_queue.is_empty():
-		var curr = rem_queue.pop_front()
+	while rem_head < rem_queue.size():
+		var curr = rem_queue[rem_head]
+		rem_head += 1
 		var cp: Vector3i = curr.pos
 		var cv: int = curr.val
 		for d in dirs:
