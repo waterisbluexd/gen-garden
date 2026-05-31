@@ -9,7 +9,7 @@ var light_chunks: Dictionary
 var chunks: Dictionary
 var global_heightmap: Dictionary
 var block_registry: BlockRegistry
-var rebuild_queue: Dictionary # Reference to the grid's rebuild queue
+var rebuild_queue: Dictionary
 
 func _init(_light_chunks: Dictionary, _chunks: Dictionary, _heightmap: Dictionary, _registry: BlockRegistry, _queue: Dictionary) -> void:
 	light_chunks = _light_chunks
@@ -55,7 +55,11 @@ func _is_opaque(block_id: int) -> bool:
 func get_sunlight(pos: Vector3i) -> int:
 	var cc := get_chunk_coord(pos)
 	if not light_chunks.has(cc):
-		var h = global_heightmap.get(Vector2i(pos.x, pos.z), -1)
+		# FIX: h == -1 means no heightmap data at all — treat as underground (dark)
+		# Previously this returned 15 for everything above h=-1 (everything),
+		# making uninitialized chunks fully bright. Now defaults to dark.
+		var h: int = global_heightmap.get(Vector2i(pos.x, pos.z), -1)
+		if h == -1: return 0
 		return 15 if pos.y > h else 0
 	var lx := posmod(pos.x, CHUNK_SIZE)
 	var ly := posmod(pos.y, CHUNK_SIZE)
@@ -95,11 +99,11 @@ func remove_sunlight(pos: Vector3i) -> void:
 	var prop_queue := []
 	var affected_chunks := {}
 	var old_val := get_sunlight(pos)
-	
+
 	set_sunlight(pos, 0)
 	rem_queue.append({"pos": pos, "val": old_val})
 	affected_chunks[get_chunk_coord(pos)] = true
-	
+
 	while not rem_queue.is_empty():
 		var curr = rem_queue.pop_front()
 		var cp: Vector3i = curr.pos
@@ -155,4 +159,24 @@ func remove_blocklight(pos: Vector3i) -> void:
 	var rem_queue := []
 	var prop_queue := []
 	var affected_chunks := {}
-	var old_val := get_blocklight
+	var old_val := get_blocklight(pos)
+
+	set_blocklight(pos, 0)
+	rem_queue.append({"pos": pos, "val": old_val})
+	affected_chunks[get_chunk_coord(pos)] = true
+
+	while not rem_queue.is_empty():
+		var curr = rem_queue.pop_front()
+		var cp: Vector3i = curr.pos
+		var cv: int = curr.val
+		for d in dirs:
+			var n: Vector3i = cp + d
+			var nv := get_blocklight(n)
+			if nv != 0 and nv < cv:
+				set_blocklight(n, 0)
+				rem_queue.append({"pos": n, "val": nv})
+				affected_chunks[get_chunk_coord(n)] = true
+			elif nv >= cv:
+				prop_queue.append(n)
+	update_blocklight_propagation(prop_queue)
+	for cc in affected_chunks: rebuild_queue[cc] = true

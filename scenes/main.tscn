@@ -63,7 +63,7 @@ script = ExtResource("2_sugp2")
 gridmapinuse = NodePath(".")
 
 [node name="Camera3D" type="Camera3D" parent="camera/camera_pivot" unique_id=1036373830]
-transform = Transform3D(1, 0, 0, 0, 0.86602527, 0.49999994, 0, -0.49999994, 0.86602527, 0, 35.178635, 56.320797)
+transform = Transform3D(0.99999994, 0, 0, 0, 0.8660252, 0.49999988, 0, -0.49999988, 0.8660252, 0, 35.178635, 56.320797)
 projection = 1
 size = 26.979
 far = 134.46
